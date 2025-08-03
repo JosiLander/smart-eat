@@ -1,0 +1,53 @@
+{
+  "expo": {
+    "name": "Smart Eat",
+    "slug": "smart-eat-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "This app needs access to camera to scan groceries",
+        "NSPhotoLibraryUsageDescription": "This app needs access to photo library to save scanned images"
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "edgeToEdgeEnabled": true,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.READ_EXTERNAL_STORAGE"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Smart Eat to access your camera to scan groceries."
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Allow Smart Eat to access your photos to save scanned images.",
+          "savePhotosPermission": "Allow Smart Eat to save scanned images to your photo library."
+        }
+      ]
+    ]
+  }
+}
