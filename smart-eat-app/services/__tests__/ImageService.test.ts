@@ -120,6 +120,9 @@ describe('ImageService', () => {
       // Test the logic by temporarily setting documentDirectory to null
       const originalDocumentDirectory = (FileSystem as any).documentDirectory;
       (FileSystem as any).documentDirectory = null;
+      
+      // Reset the readDirectoryAsync mock to ensure it doesn't interfere
+      (FileSystem.readDirectoryAsync as jest.Mock).mockReset();
 
       const result = await ImageService.getLocalImages();
 
