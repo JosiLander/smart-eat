@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View, TouchableOpacity, Alert } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Alert, Platform } from 'react-native';
 import { CameraScreen } from './components/CameraScreen';
 import { PhotoPreview } from './components/PhotoPreview';
 import { PermissionService, PermissionStatus } from './services/PermissionService';
@@ -15,6 +15,7 @@ export default function App() {
     mediaLibrary: false,
   });
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [debugInfo, setDebugInfo] = useState<string>('');
 
   useEffect(() => {
     initializeApp();
@@ -22,8 +23,24 @@ export default function App() {
 
   const initializeApp = async () => {
     try {
+      console.log('Initializing app...');
+      console.log('Platform:', Platform.OS);
+      
+      // Web-specific handling
+      if (Platform.OS === 'web') {
+        console.log('Running on web platform');
+        setDebugInfo('Web platform detected');
+        
+        // For web, we'll skip the strict permission check initially
+        // and let the camera component handle permissions
+        setAppState('main');
+        return;
+      }
+
       const permissions = await PermissionService.ensurePermissions();
       setPermissionStatus(permissions);
+      
+      console.log('Permission status:', permissions);
       
       if (permissions.camera && permissions.mediaLibrary) {
         setAppState('main');
@@ -32,16 +49,19 @@ export default function App() {
       }
     } catch (error) {
       console.error('App initialization error:', error);
+      setDebugInfo(`Init error: ${error}`);
       setAppState('permission-denied');
     }
   };
 
   const handlePhotoCaptured = (photoUri: string) => {
+    console.log('Photo captured:', photoUri);
     setCapturedImage(photoUri);
     setAppState('preview');
   };
 
   const handleRetakePhoto = () => {
+    console.log('Retaking photo');
     setCapturedImage(null);
     setAppState('camera');
   };
@@ -49,6 +69,7 @@ export default function App() {
   const handleUsePhoto = async () => {
     if (!capturedImage) return;
 
+    console.log('Using photo:', capturedImage);
     const result = await ImageService.saveImage(capturedImage);
     
     if (result.success) {
@@ -64,16 +85,29 @@ export default function App() {
   };
 
   const handleStartCamera = () => {
+    console.log('Starting camera...');
     setAppState('camera');
   };
 
   const handleCloseCamera = () => {
+    console.log('Closing camera');
     setAppState('main');
   };
 
+  const handleDemoMode = () => {
+    console.log('Starting demo mode...');
+    // Use a sample image for demo purposes
+    const demoImageUri = 'https://via.placeholder.com/400x300/3498db/ffffff?text=Demo+Grocery+Photo';
+    setCapturedImage(demoImageUri);
+    setAppState('preview');
+  };
+
   const handleRequestPermissions = async () => {
+    console.log('Requesting permissions...');
     const permissions = await PermissionService.requestPermissions();
     setPermissionStatus(permissions);
+    
+    console.log('New permission status:', permissions);
     
     if (permissions.camera && permissions.mediaLibrary) {
       setAppState('main');
@@ -85,6 +119,7 @@ export default function App() {
     return (
       <View style={styles.container}>
         <Text style={styles.loadingText}>Initializing...</Text>
+        {debugInfo ? <Text style={styles.debugText}>{debugInfo}</Text> : null}
       </View>
     );
   }
@@ -94,9 +129,17 @@ export default function App() {
     return (
       <View style={styles.container}>
         <Text style={styles.errorText}>Camera and Media Library permissions are required</Text>
+        <Text style={styles.debugText}>Platform: {Platform.OS}</Text>
+        <Text style={styles.debugText}>Camera: {permissionStatus.camera ? 'Granted' : 'Denied'}</Text>
+        <Text style={styles.debugText}>Media Library: {permissionStatus.mediaLibrary ? 'Granted' : 'Denied'}</Text>
         <TouchableOpacity style={styles.button} onPress={handleRequestPermissions}>
           <Text style={styles.buttonText}>Grant Permissions</Text>
         </TouchableOpacity>
+        {Platform.OS === 'web' && (
+          <TouchableOpacity style={styles.button} onPress={() => setAppState('main')}>
+            <Text style={styles.buttonText}>Continue Anyway (Web)</Text>
+          </TouchableOpacity>
+        )}
       </View>
     );
   }
@@ -130,6 +173,18 @@ export default function App() {
       <TouchableOpacity style={styles.scanButton} onPress={handleStartCamera}>
         <Text style={styles.scanButtonText}>Scan Groceries</Text>
       </TouchableOpacity>
+      {Platform.OS === 'web' && (
+        <>
+          <TouchableOpacity style={styles.demoButton} onPress={handleDemoMode}>
+            <Text style={styles.demoButtonText}>Try Demo Mode</Text>
+          </TouchableOpacity>
+          <View style={styles.webInfo}>
+            <Text style={styles.webInfoText}>Web Platform</Text>
+            <Text style={styles.webInfoText}>Camera access may be limited</Text>
+            <Text style={styles.webInfoText}>Use Demo Mode to test the flow</Text>
+          </View>
+        </>
+      )}
       <StatusBar style="auto" />
     </View>
   );
@@ -190,5 +245,39 @@ const styles = StyleSheet.create({
     color: '#e74c3c',
     textAlign: 'center',
     marginBottom: 20,
+  },
+  debugText: {
+    fontSize: 12,
+    color: '#95a5a6',
+    textAlign: 'center',
+    marginTop: 5,
+  },
+  webInfo: {
+    marginTop: 20,
+    padding: 10,
+    backgroundColor: '#ecf0f1',
+    borderRadius: 10,
+  },
+  webInfoText: {
+    fontSize: 12,
+    color: '#7f8c8d',
+    textAlign: 'center',
+  },
+  demoButton: {
+    backgroundColor: '#2ecc71',
+    paddingHorizontal: 25,
+    paddingVertical: 12,
+    borderRadius: 20,
+    marginTop: 15,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  demoButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

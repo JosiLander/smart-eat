@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Image, TouchableOpacity, Text, StyleSheet, Alert } from 'react-native';
+import { View, Image, TouchableOpacity, Text, StyleSheet, Alert, Platform } from 'react-native';
 import * as MediaLibrary from 'expo-media-library';
 import * as FileSystem from 'expo-file-system';
 
@@ -16,6 +16,17 @@ export const PhotoPreview: React.FC<PhotoPreviewProps> = ({
 }) => {
   const savePhoto = async () => {
     try {
+      console.log('Saving photo:', imageUri);
+      
+      // For web demo images, skip media library save
+      if (Platform.OS === 'web' && imageUri.startsWith('http')) {
+        console.log('Web demo image - skipping media library save');
+        Alert.alert('Demo Mode', 'Photo saved successfully! (Demo mode)', [
+          { text: 'OK', onPress: onUsePhoto }
+        ]);
+        return;
+      }
+
       // Save to media library
       await MediaLibrary.saveToLibraryAsync(imageUri);
       
@@ -47,6 +58,11 @@ export const PhotoPreview: React.FC<PhotoPreviewProps> = ({
           <Text style={styles.buttonText}>Use Photo</Text>
         </TouchableOpacity>
       </View>
+      {Platform.OS === 'web' && imageUri.startsWith('http') && (
+        <View style={styles.demoNote}>
+          <Text style={styles.demoNoteText}>Demo Mode - Using sample image</Text>
+        </View>
+      )}
     </View>
   );
 };
@@ -82,6 +98,21 @@ const styles = StyleSheet.create({
   buttonText: {
     color: 'white',
     fontSize: 16,
+    fontWeight: '600',
+  },
+  demoNote: {
+    position: 'absolute',
+    top: 20,
+    left: 20,
+    right: 20,
+    backgroundColor: 'rgba(52, 152, 219, 0.9)',
+    padding: 10,
+    borderRadius: 10,
+  },
+  demoNoteText: {
+    color: 'white',
+    fontSize: 14,
+    textAlign: 'center',
     fontWeight: '600',
   },
 }); 
