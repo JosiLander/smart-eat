@@ -11,7 +11,7 @@ import { ImageService } from './services/ImageService';
 import { ScanningService, ScanResult } from './services/ScanningService';
 import { InventoryService } from './services/InventoryService';
 
-type AppState = 'loading' | 'permission-denied' | 'main' | 'camera' | 'preview' | 'scan-results';
+type AppState = 'loading' | 'permission-denied' | 'main' | 'camera' | 'preview' | 'scan-results' | 'recipe-suggestions' | 'recipe-detail';
 
 export default function App() {
   const [appState, setAppState] = useState<AppState>('loading');
@@ -21,6 +21,7 @@ export default function App() {
   });
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
+  const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null);
   const [debugInfo, setDebugInfo] = useState<string>('');
 
   useEffect(() => {
@@ -137,6 +138,30 @@ export default function App() {
     setAppState('main');
   };
 
+  const handleViewRecipeSuggestions = () => {
+    setAppState('recipe-suggestions');
+  };
+
+  const handleViewRecipe = (recipeId: string) => {
+    setSelectedRecipeId(recipeId);
+    setAppState('recipe-detail');
+  };
+
+  const handleRecipeBack = () => {
+    setSelectedRecipeId(null);
+    setAppState('recipe-suggestions');
+  };
+
+  const handleRecipeSuggestionsBack = () => {
+    setAppState('main');
+  };
+
+  const handleAddToGroceryList = (missingIngredients: string[]) => {
+    // TODO: Implement grocery list functionality
+    console.log('Adding to grocery list:', missingIngredients);
+    Alert.alert('Coming Soon', 'Grocery list functionality will be available in the next update!');
+  };
+
   const handleStartCamera = () => {
     console.log('Starting camera...');
     setAppState('camera');
@@ -207,29 +232,50 @@ export default function App() {
     );
   }
 
-  // Scan Results state
-  if (appState === 'scan-results' && capturedImage && scanResult) {
-    return (
-      <ScanResultsScreen
-        scanResult={scanResult}
-        imageUri={capturedImage}
-        onConfirm={handleScanResultsConfirm}
-        onRetake={handleRetakePhoto}
-        onCancel={handleScanResultsCancel}
-      />
-    );
-  }
+          // Scan Results state
+        if (appState === 'scan-results' && capturedImage && scanResult) {
+          return (
+            <ScanResultsScreen
+              scanResult={scanResult}
+              imageUri={capturedImage}
+              onConfirm={handleScanResultsConfirm}
+              onRetake={handleRetakePhoto}
+              onCancel={handleScanResultsCancel}
+            />
+          );
+        }
 
-  // Preview state (fallback)
-  if (appState === 'preview' && capturedImage) {
-    return (
-      <PhotoPreview
-        imageUri={capturedImage}
-        onRetake={handleRetakePhoto}
-        onUsePhoto={handleUsePhoto}
-      />
-    );
-  }
+        // Recipe Suggestions state
+        if (appState === 'recipe-suggestions') {
+          return (
+            <RecipeSuggestionsScreen
+              onBack={handleRecipeSuggestionsBack}
+              onViewRecipe={handleViewRecipe}
+            />
+          );
+        }
+
+        // Recipe Detail state
+        if (appState === 'recipe-detail' && selectedRecipeId) {
+          return (
+            <RecipeDetailScreen
+              recipeId={selectedRecipeId}
+              onBack={handleRecipeBack}
+              onAddToGroceryList={handleAddToGroceryList}
+            />
+          );
+        }
+
+        // Preview state (fallback)
+        if (appState === 'preview' && capturedImage) {
+          return (
+            <PhotoPreview
+              imageUri={capturedImage}
+              onRetake={handleRetakePhoto}
+              onUsePhoto={handleUsePhoto}
+            />
+          );
+        }
 
   // Main screen
   return (
@@ -238,6 +284,10 @@ export default function App() {
       <Text style={styles.subtitle}>Grocery Scanner</Text>
       <TouchableOpacity style={styles.scanButton} onPress={handleStartCamera}>
         <Text style={styles.scanButtonText}>Scan Groceries</Text>
+      </TouchableOpacity>
+      
+      <TouchableOpacity style={styles.secondaryButton} onPress={handleViewRecipeSuggestions}>
+        <Text style={styles.secondaryButtonText}>🍳 Recipe Suggestions</Text>
       </TouchableOpacity>
       {Platform.OS === 'web' && (
         <>
@@ -298,6 +348,18 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   buttonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  secondaryButton: {
+    backgroundColor: '#95a5a6',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    marginTop: 15,
+  },
+  secondaryButtonText: {
     color: 'white',
     fontSize: 16,
     fontWeight: '600',

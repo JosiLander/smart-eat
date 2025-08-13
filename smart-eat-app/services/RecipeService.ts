@@ -278,7 +278,7 @@ export class RecipeService {
 
     for (const recipe of this.RECIPE_DATABASE) {
       const suggestion = this.analyzeRecipeMatch(recipe, inventoryItems, filters);
-      if (suggestion.matchScore > 0.3) { // Only suggest if at least 30% match
+      if (suggestion.matchScore > 0.3 && this.passesFilters(suggestion, filters)) { // Only suggest if at least 30% match and passes filters
         suggestions.push(suggestion);
       }
     }
@@ -363,7 +363,7 @@ export class RecipeService {
       this.isSimilarIngredient(item.name, recipeIngredient.name)
     );
 
-    return match;
+    return match || null;
   }
 
   private static isSimilarIngredient(inventoryName: string, recipeName: string): boolean {
@@ -383,6 +383,28 @@ export class RecipeService {
 
     // Can make if missing less than 30% of required ingredients
     return missingRequired.length <= Math.ceil(requiredIngredients.length * 0.3);
+  }
+
+  private static passesFilters(suggestion: RecipeSuggestion, filters?: RecipeSearchFilters): boolean {
+    if (!filters) return true;
+
+    if (filters.maxPrepTime && suggestion.recipe.prepTime > filters.maxPrepTime) {
+      return false;
+    }
+    if (filters.difficulty && suggestion.recipe.difficulty !== filters.difficulty) {
+      return false;
+    }
+    if (filters.cuisine && suggestion.recipe.cuisine !== filters.cuisine) {
+      return false;
+    }
+    if (filters.tags && !filters.tags.some(tag => suggestion.recipe.tags.includes(tag))) {
+      return false;
+    }
+    if (filters.maxMissingIngredients && suggestion.missingIngredients.length > filters.maxMissingIngredients) {
+      return false;
+    }
+
+    return true;
   }
 
   static async getRecipesByCategory(category: string): Promise<Recipe[]> {

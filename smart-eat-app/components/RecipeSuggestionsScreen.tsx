@@ -218,7 +218,7 @@ export const RecipeSuggestionsScreen: React.FC<RecipeSuggestionsScreenProps> = (
           onPress={() => setFilters(prev => ({ ...prev, maxPrepTime: prev.maxPrepTime === 30 ? undefined : 30 }))}
         >
           <Text style={[styles.filterButtonText, filters.maxPrepTime === 30 && styles.filterButtonTextActive]}>
-            Quick (< 30m)
+            Quick (&lt; 30m)
           </Text>
         </TouchableOpacity>
         
