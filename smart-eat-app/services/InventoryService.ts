@@ -1,5 +1,4 @@
 import { RecognizedProduct } from './AIService';
-import { ExtractedDate } from './OCRService';
 
 export interface InventoryItem {
   id: string;
@@ -58,20 +57,17 @@ export class InventoryService {
 
   static async addItem(
     product: RecognizedProduct,
-    extractedDates: ExtractedDate[],
+    expirationDates: Date[],
     imageUri?: string,
     quantity: number = 1,
     unit: string = 'piece'
   ): Promise<AddItemResult> {
     try {
-      // Use the highest confidence date, or generate a suggested date
+      // Use the first provided date, or generate a suggested date
       let expirationDate: Date;
       
-      if (extractedDates.length > 0) {
-        const bestDate = extractedDates.reduce((best, current) => 
-          current.confidence > best.confidence ? current : best
-        );
-        expirationDate = bestDate.date;
+      if (expirationDates.length > 0) {
+        expirationDate = expirationDates[0];
       } else {
         // Use suggested expiration days from product recognition
         const suggestedDate = new Date();

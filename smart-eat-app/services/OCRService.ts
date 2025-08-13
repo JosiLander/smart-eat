@@ -1,7 +1,7 @@
 export interface ExtractedDate {
   date: Date;
   confidence: number;
-  format: 'best-before' | 'expires-on' | 'use-by' | 'sell-by';
+  format: 'best-before' | 'expires-on' | 'use-by';
   rawText: string;
 }
 
@@ -29,9 +29,7 @@ export class OCRService {
     { regex: /use\s*by\s*:?\s*(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i, format: 'use-by' as const },
     { regex: /use\s*before\s*:?\s*(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i, format: 'use-by' as const },
     
-    // Sell By patterns
-    { regex: /sell\s*by\s*:?\s*(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i, format: 'sell-by' as const },
-    { regex: /sell\s*before\s*:?\s*(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i, format: 'sell-by' as const },
+
     
     // Generic date patterns (fallback)
     { regex: /(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/, format: 'best-before' as const },
@@ -127,7 +125,7 @@ export class OCRService {
   }
 
   private static getRandomDateFormat(): ExtractedDate['format'] {
-    const formats: ExtractedDate['format'][] = ['best-before', 'expires-on', 'use-by', 'sell-by'];
+    const formats: ExtractedDate['format'][] = ['best-before', 'expires-on', 'use-by'];
     return formats[Math.floor(Math.random() * formats.length)];
   }
 
@@ -140,7 +138,6 @@ export class OCRService {
       'best-before': 'Best Before',
       'expires-on': 'Expires',
       'use-by': 'Use By',
-      'sell-by': 'Sell By',
     };
     
     return `${formatLabels[format]}: ${day}/${month}/${year}`;

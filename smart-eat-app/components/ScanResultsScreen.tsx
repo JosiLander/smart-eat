@@ -11,13 +11,13 @@ import {
   TextInput
 } from 'react-native';
 import { RecognizedProduct } from '../services/AIService';
-import { ExtractedDate } from '../services/OCRService';
 import { ScanResult } from '../services/ScanningService';
+import { DatePicker } from './DatePicker';
 
 interface ScanResultsScreenProps {
   scanResult: ScanResult;
   imageUri: string;
-  onConfirm: (products: RecognizedProduct[], dates: ExtractedDate[]) => void;
+  onConfirm: (products: RecognizedProduct[], dates: Date[]) => void;
   onRetake: () => void;
   onCancel: () => void;
 }
@@ -27,6 +27,7 @@ interface EditableProduct extends RecognizedProduct {
   customName?: string;
   customQuantity?: number;
   customUnit?: string;
+  expirationDate?: Date;
 }
 
 export const ScanResultsScreen: React.FC<ScanResultsScreenProps> = ({
@@ -36,16 +37,17 @@ export const ScanResultsScreen: React.FC<ScanResultsScreenProps> = ({
   onRetake,
   onCancel,
 }) => {
-  const [editableProducts, setEditableProducts] = useState<EditableProduct[]>(
-    scanResult.products.map(product => ({
+  const [editableProducts, setEditableProducts] = useState<EditableProduct[]>(() => {
+    // Combine products with dates - assign dates to products in order
+    return scanResult.products.map((product, index) => ({
       ...product,
       isSelected: true,
-    }))
-  );
-  const [selectedDates, setSelectedDates] = useState<ExtractedDate[]>(
-    scanResult.dates
-  );
+      expirationDate: scanResult.dates[index]?.date || undefined,
+    }));
+  });
   const [isProcessing, setIsProcessing] = useState(false);
+  const [datePickerVisible, setDatePickerVisible] = useState(false);
+  const [selectedProductIndex, setSelectedProductIndex] = useState<number | null>(null);
 
   const handleProductToggle = (index: number) => {
     const updated = [...editableProducts];
@@ -59,14 +61,24 @@ export const ScanResultsScreen: React.FC<ScanResultsScreenProps> = ({
     setEditableProducts(updated);
   };
 
-  const handleDateToggle = (index: number) => {
-    const updated = [...selectedDates];
-    if (updated[index]) {
-      updated.splice(index, 1);
-    } else {
-      updated.push(scanResult.dates[index]);
+  const handleDateToggle = (productIndex: number) => {
+    setSelectedProductIndex(productIndex);
+    setDatePickerVisible(true);
+  };
+
+  const handleDateSelect = (date: Date) => {
+    if (selectedProductIndex !== null) {
+      const updated = [...editableProducts];
+      updated[selectedProductIndex].expirationDate = date;
+      setEditableProducts(updated);
     }
-    setSelectedDates(updated);
+    setDatePickerVisible(false);
+    setSelectedProductIndex(null);
+  };
+
+  const handleDateCancel = () => {
+    setDatePickerVisible(false);
+    setSelectedProductIndex(null);
   };
 
   const handleConfirm = async () => {
@@ -89,7 +101,12 @@ export const ScanResultsScreen: React.FC<ScanResultsScreenProps> = ({
         barcode: product.barcode,
       }));
 
-      onConfirm(confirmedProducts, selectedDates);
+      // Extract expiration dates for selected products
+      const confirmedDates: Date[] = selectedProducts
+        .map(product => product.expirationDate)
+        .filter((date): date is Date => date !== undefined);
+
+      onConfirm(confirmedProducts, confirmedDates);
     } catch (error) {
       console.error('Error confirming scan results:', error);
       Alert.alert('Error', 'Failed to save items. Please try again.');
@@ -128,9 +145,9 @@ export const ScanResultsScreen: React.FC<ScanResultsScreenProps> = ({
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Products Section */}
+        {/* Combined Products and Dates Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Recognized Products</Text>
+          <Text style={styles.sectionTitle}>Scanned Items</Text>
           {editableProducts.length > 0 ? (
             editableProducts.map((product, index) => (
               <View key={index} style={styles.productCard}>
@@ -190,6 +207,36 @@ export const ScanResultsScreen: React.FC<ScanResultsScreenProps> = ({
                         placeholder="piece"
                       />
                     </View>
+
+                    {/* Expiry Date Section */}
+                    <View style={styles.inputRow}>
+                      <Text style={styles.inputLabel}>Expiry Date:</Text>
+                      <View style={styles.dateSection}>
+                        {product.expirationDate ? (
+                          <View style={styles.dateDisplay}>
+                            <Text style={styles.dateText}>
+                              {formatDate(product.expirationDate)}
+                            </Text>
+                            <TouchableOpacity
+                              style={styles.removeDateButton}
+                              onPress={() => handleDateToggle(index)}
+                            >
+                              <Text style={styles.removeDateText}>✕</Text>
+                            </TouchableOpacity>
+                          </View>
+                        ) : (
+                          <View style={styles.dateSelector}>
+                            <Text style={styles.noDateText}>No date assigned</Text>
+                            <TouchableOpacity
+                              style={styles.assignDateButton}
+                              onPress={() => handleDateToggle(index)}
+                            >
+                              <Text style={styles.assignDateText}>Select Date</Text>
+                            </TouchableOpacity>
+                          </View>
+                        )}
+                      </View>
+                    </View>
                   </View>
                 )}
               </View>
@@ -204,41 +251,7 @@ export const ScanResultsScreen: React.FC<ScanResultsScreenProps> = ({
           )}
         </View>
 
-        {/* Dates Section */}
-        {scanResult.dates.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Expiration Dates</Text>
-            {scanResult.dates.map((date, index) => (
-              <View key={index} style={styles.dateCard}>
-                <View style={styles.dateHeader}>
-                  <TouchableOpacity
-                    style={[styles.checkbox, selectedDates.includes(date) && styles.checkboxSelected]}
-                    onPress={() => handleDateToggle(index)}
-                  >
-                    {selectedDates.includes(date) && <Text style={styles.checkmark}>✓</Text>}
-                  </TouchableOpacity>
-                  
-                  <View style={styles.dateInfo}>
-                    <Text style={styles.dateText}>{date.rawText}</Text>
-                    <Text style={styles.dateFormat}>{date.format.replace('-', ' ')}</Text>
-                  </View>
-                  
-                  <View style={styles.confidenceBadge}>
-                    <Text style={[
-                      styles.confidenceText,
-                      { color: getConfidenceColor(date.confidence) }
-                    ]}>
-                      {getConfidenceText(date.confidence)}
-                    </Text>
-                    <Text style={styles.confidencePercent}>
-                      {Math.round(date.confidence * 100)}%
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            ))}
-          </View>
-        )}
+
 
         {/* Processing Time */}
         <View style={styles.processingInfo}>
@@ -270,6 +283,14 @@ export const ScanResultsScreen: React.FC<ScanResultsScreenProps> = ({
           )}
         </TouchableOpacity>
       </View>
+
+      {/* Date Picker Modal */}
+      <DatePicker
+        visible={datePickerVisible}
+        selectedDate={selectedProductIndex !== null ? editableProducts[selectedProductIndex]?.expirationDate : undefined}
+        onDateSelect={handleDateSelect}
+        onCancel={handleDateCancel}
+      />
     </View>
   );
 };
@@ -408,25 +429,7 @@ const styles = StyleSheet.create({
     padding: 8,
     fontSize: 14,
   },
-  dateCard: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  dateHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  dateInfo: {
-    flex: 1,
-    marginLeft: 12,
-  },
+
   dateText: {
     fontSize: 16,
     fontWeight: '600',
@@ -452,6 +455,53 @@ const styles = StyleSheet.create({
     color: '#95a5a6',
     textAlign: 'center',
   },
+
+  dateSection: {
+    flex: 1,
+  },
+  dateDisplay: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
+    borderRadius: 6,
+    padding: 8,
+  },
+  dateSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  noDateText: {
+    fontSize: 14,
+    color: '#95a5a6',
+    fontStyle: 'italic',
+  },
+  assignDateButton: {
+    backgroundColor: '#3498db',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 4,
+  },
+  assignDateText: {
+    fontSize: 12,
+    color: 'white',
+    fontWeight: '600',
+  },
+  removeDateButton: {
+    backgroundColor: '#e74c3c',
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
+  },
+  removeDateText: {
+    fontSize: 12,
+    color: 'white',
+    fontWeight: 'bold',
+  },
+
   processingInfo: {
     alignItems: 'center',
     padding: 16,
