@@ -4,6 +4,8 @@ import { StyleSheet, Text, View, TouchableOpacity, Alert, Platform } from 'react
 import { CameraScreen } from './components/CameraScreen';
 import { PhotoPreview } from './components/PhotoPreview';
 import { ScanResultsScreen } from './components/ScanResultsScreen';
+import { RecipeSuggestionsScreen } from './components/RecipeSuggestionsScreen';
+import { RecipeDetailScreen } from './components/RecipeDetailScreen';
 import { PermissionService, PermissionStatus } from './services/PermissionService';
 import { ImageService } from './services/ImageService';
 import { ScanningService, ScanResult } from './services/ScanningService';

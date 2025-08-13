@@ -17,7 +17,8 @@
       "infoPlist": {
         "NSCameraUsageDescription": "This app needs access to camera to scan groceries",
         "NSPhotoLibraryUsageDescription": "This app needs access to photo library to save scanned images"
-      }
+      },
+      "bundleIdentifier": "com.josilander.smart-eat-app"
     },
     "android": {
       "adaptiveIcon": {
@@ -28,7 +29,8 @@
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.WRITE_EXTERNAL_STORAGE",
-        "android.permission.READ_EXTERNAL_STORAGE"
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "web": {
