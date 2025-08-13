@@ -3,10 +3,13 @@ import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, Text, View, TouchableOpacity, Alert, Platform } from 'react-native';
 import { CameraScreen } from './components/CameraScreen';
 import { PhotoPreview } from './components/PhotoPreview';
+import { ScanResultsScreen } from './components/ScanResultsScreen';
 import { PermissionService, PermissionStatus } from './services/PermissionService';
 import { ImageService } from './services/ImageService';
+import { ScanningService, ScanResult } from './services/ScanningService';
+import { InventoryService } from './services/InventoryService';
 
-type AppState = 'loading' | 'permission-denied' | 'main' | 'camera' | 'preview';
+type AppState = 'loading' | 'permission-denied' | 'main' | 'camera' | 'preview' | 'scan-results';
 
 export default function App() {
   const [appState, setAppState] = useState<AppState>('loading');
@@ -15,10 +18,13 @@ export default function App() {
     mediaLibrary: false,
   });
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [debugInfo, setDebugInfo] = useState<string>('');
 
   useEffect(() => {
     initializeApp();
+    // Initialize inventory service
+    InventoryService.initialize();
   }, []);
 
   const initializeApp = async () => {
@@ -54,10 +60,26 @@ export default function App() {
     }
   };
 
-  const handlePhotoCaptured = (photoUri: string) => {
+  const handlePhotoCaptured = async (photoUri: string) => {
     console.log('Photo captured:', photoUri);
     setCapturedImage(photoUri);
-    setAppState('preview');
+    
+    try {
+      // Start AI scanning process
+      console.log('Starting AI scan...');
+      const result = await ScanningService.scanImage(photoUri);
+      setScanResult(result);
+      
+      if (result.success) {
+        setAppState('scan-results');
+      } else {
+        // Fall back to preview if scan fails
+        setAppState('preview');
+      }
+    } catch (error) {
+      console.error('Scan failed:', error);
+      setAppState('preview');
+    }
   };
 
   const handleRetakePhoto = () => {
@@ -76,12 +98,41 @@ export default function App() {
       Alert.alert('Success', 'Photo saved successfully!', [
         { text: 'OK', onPress: () => {
           setCapturedImage(null);
+          setScanResult(null);
           setAppState('main');
         }}
       ]);
     } else {
       Alert.alert('Error', `Failed to save photo: ${result.error}`);
     }
+  };
+
+  const handleScanResultsConfirm = async (products: any[], dates: any[]) => {
+    if (!capturedImage) return;
+
+    try {
+      // Add items to inventory
+      for (const product of products) {
+        await InventoryService.addItem(product, dates, capturedImage);
+      }
+
+      Alert.alert('Success', `${products.length} items added to inventory!`, [
+        { text: 'OK', onPress: () => {
+          setCapturedImage(null);
+          setScanResult(null);
+          setAppState('main');
+        }}
+      ]);
+    } catch (error) {
+      console.error('Failed to add items to inventory:', error);
+      Alert.alert('Error', 'Failed to add items to inventory. Please try again.');
+    }
+  };
+
+  const handleScanResultsCancel = () => {
+    setCapturedImage(null);
+    setScanResult(null);
+    setAppState('main');
   };
 
   const handleStartCamera = () => {
@@ -154,7 +205,20 @@ export default function App() {
     );
   }
 
-  // Preview state
+  // Scan Results state
+  if (appState === 'scan-results' && capturedImage && scanResult) {
+    return (
+      <ScanResultsScreen
+        scanResult={scanResult}
+        imageUri={capturedImage}
+        onConfirm={handleScanResultsConfirm}
+        onRetake={handleRetakePhoto}
+        onCancel={handleScanResultsCancel}
+      />
+    );
+  }
+
+  // Preview state (fallback)
   if (appState === 'preview' && capturedImage) {
     return (
       <PhotoPreview
