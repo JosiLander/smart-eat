@@ -8,7 +8,8 @@ import {
   Alert,
   ActivityIndicator,
   Platform,
-  TextInput
+  TextInput,
+  SafeAreaView
 } from 'react-native';
 import { RecognizedProduct } from '../services/AIService';
 import { ScanResult } from '../services/ScanningService';
@@ -45,6 +46,8 @@ export const ScanResultsScreen: React.FC<ScanResultsScreenProps> = ({
       ...product,
       isSelected: true,
       expirationDate: scanResult.dates[index]?.date || undefined,
+      customQuantity: product.detectedQuantity || 1,
+      customUnit: product.detectedUnit || 'piece',
     }));
   });
   const [isProcessing, setIsProcessing] = useState(false);
@@ -132,7 +135,7 @@ export const ScanResultsScreen: React.FC<ScanResultsScreenProps> = ({
 
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Scan Results</Text>
         <Text style={styles.subtitle}>
@@ -300,7 +303,7 @@ export const ScanResultsScreen: React.FC<ScanResultsScreenProps> = ({
         onDateSelect={handleDateSelect}
         onCancel={handleDateCancel}
       />
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -311,6 +314,7 @@ const styles = StyleSheet.create({
   },
   header: {
     padding: 20,
+    paddingTop: Platform.OS === 'ios' ? 60 : 20,
     backgroundColor: 'white',
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
@@ -473,11 +477,13 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 12,
     minWidth: 80,
+    maxWidth: 120,
     alignItems: 'center',
   },
   urgencyText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
+    textAlign: 'center',
   },
   dateSelector: {
     flexDirection: 'row',

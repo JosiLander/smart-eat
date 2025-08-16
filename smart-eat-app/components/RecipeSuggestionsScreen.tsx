@@ -10,6 +10,7 @@ import {
   Alert,
   ActivityIndicator,
   Platform,
+  SafeAreaView,
 } from 'react-native';
 import { RecipeService, RecipeSuggestion, RecipeSearchFilters } from '../services/RecipeService';
 import { InventoryService, InventoryItem } from '../services/InventoryService';
@@ -244,7 +245,7 @@ export const RecipeSuggestionsScreen: React.FC<RecipeSuggestionsScreenProps> = (
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={onBack}>
           <Text style={styles.backButtonText}>← Back</Text>
@@ -299,7 +300,7 @@ export const RecipeSuggestionsScreen: React.FC<RecipeSuggestionsScreenProps> = (
           contentContainerStyle={styles.recipesList}
         />
       )}
-    </View>
+    </SafeAreaView>
   );
 };
 

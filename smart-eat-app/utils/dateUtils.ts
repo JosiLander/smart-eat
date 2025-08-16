@@ -28,7 +28,7 @@ export const getExpiryColorInfo = (expiryDate: Date): ExpiryColorInfo => {
     return {
       color: '#ffffff',
       backgroundColor: '#f39c12',
-      text: 'Expires This Week',
+      text: 'This Week',
       urgency: 'warning'
     };
   } else {

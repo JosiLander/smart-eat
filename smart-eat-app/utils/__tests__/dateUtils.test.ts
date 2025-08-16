@@ -32,7 +32,7 @@ describe('dateUtils', () => {
       
       expect(result.urgency).toBe('warning');
       expect(result.backgroundColor).toBe('#f39c12');
-      expect(result.text).toBe('Expires This Week');
+      expect(result.text).toBe('This Week');
     });
 
     it('should return safe status for dates beyond 7 days', () => {

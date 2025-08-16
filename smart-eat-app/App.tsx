@@ -6,12 +6,16 @@ import { PhotoPreview } from './components/PhotoPreview';
 import { ScanResultsScreen } from './components/ScanResultsScreen';
 import { RecipeSuggestionsScreen } from './components/RecipeSuggestionsScreen';
 import { RecipeDetailScreen } from './components/RecipeDetailScreen';
+import { InventoryOverviewScreen } from './components/InventoryOverviewScreen';
+import { InventoryItemDetailScreen } from './components/InventoryItemDetailScreen';
+import { GroceryListScreen } from './components/GroceryListScreen';
 import { PermissionService, PermissionStatus } from './services/PermissionService';
 import { ImageService } from './services/ImageService';
 import { ScanningService, ScanResult } from './services/ScanningService';
-import { InventoryService } from './services/InventoryService';
+import { InventoryService, InventoryItem } from './services/InventoryService';
+import { GroceryListService } from './services/GroceryListService';
 
-type AppState = 'loading' | 'permission-denied' | 'main' | 'camera' | 'preview' | 'scan-results' | 'recipe-suggestions' | 'recipe-detail';
+type AppState = 'loading' | 'permission-denied' | 'main' | 'camera' | 'preview' | 'scan-results' | 'recipe-suggestions' | 'recipe-detail' | 'inventory-overview' | 'inventory-item-detail' | 'grocery-list';
 
 export default function App() {
   const [appState, setAppState] = useState<AppState>('loading');
@@ -22,12 +26,14 @@ export default function App() {
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null);
+  const [selectedInventoryItem, setSelectedInventoryItem] = useState<InventoryItem | null>(null);
   const [debugInfo, setDebugInfo] = useState<string>('');
 
   useEffect(() => {
     initializeApp();
-    // Initialize inventory service
+    // Initialize services
     InventoryService.initialize();
+    GroceryListService.initialize();
   }, []);
 
   const initializeApp = async () => {
@@ -162,6 +168,40 @@ export default function App() {
     Alert.alert('Coming Soon', 'Grocery list functionality will be available in the next update!');
   };
 
+  const handleViewInventoryOverview = () => {
+    console.log('Opening inventory overview...');
+    setAppState('inventory-overview');
+  };
+
+  const handleInventoryOverviewBack = () => {
+    setAppState('main');
+  };
+
+  const handleViewInventoryItem = (item: InventoryItem) => {
+    console.log('Opening inventory item detail:', item.name);
+    setSelectedInventoryItem(item);
+    setAppState('inventory-item-detail');
+  };
+
+  const handleInventoryItemDetailBack = () => {
+    setSelectedInventoryItem(null);
+    setAppState('inventory-overview');
+  };
+
+  const handleInventoryItemUpdated = () => {
+    // Refresh inventory data when item is updated
+    console.log('Inventory item updated, refreshing...');
+  };
+
+  const handleViewGroceryList = () => {
+    console.log('Opening grocery list...');
+    setAppState('grocery-list');
+  };
+
+  const handleGroceryListBack = () => {
+    setAppState('main');
+  };
+
   const handleStartCamera = () => {
     console.log('Starting camera...');
     setAppState('camera');
@@ -266,6 +306,36 @@ export default function App() {
           );
         }
 
+        // Inventory Overview state
+        if (appState === 'inventory-overview') {
+          return (
+            <InventoryOverviewScreen
+              onBack={handleInventoryOverviewBack}
+              onViewItem={handleViewInventoryItem}
+            />
+          );
+        }
+
+        // Inventory Item Detail state
+        if (appState === 'inventory-item-detail' && selectedInventoryItem) {
+          return (
+            <InventoryItemDetailScreen
+              item={selectedInventoryItem}
+              onBack={handleInventoryItemDetailBack}
+              onItemUpdated={handleInventoryItemUpdated}
+            />
+          );
+        }
+
+        // Grocery List state
+        if (appState === 'grocery-list') {
+          return (
+            <GroceryListScreen
+              onBack={handleGroceryListBack}
+            />
+          );
+        }
+
         // Preview state (fallback)
         if (appState === 'preview' && capturedImage) {
           return (
@@ -288,6 +358,14 @@ export default function App() {
       
       <TouchableOpacity style={styles.secondaryButton} onPress={handleViewRecipeSuggestions}>
         <Text style={styles.secondaryButtonText}>🍳 Recipe Suggestions</Text>
+      </TouchableOpacity>
+      
+      <TouchableOpacity style={styles.secondaryButton} onPress={handleViewInventoryOverview}>
+        <Text style={styles.secondaryButtonText}>📦 Inventory Overview</Text>
+      </TouchableOpacity>
+      
+      <TouchableOpacity style={styles.secondaryButton} onPress={handleViewGroceryList}>
+        <Text style={styles.secondaryButtonText}>🛒 Grocery List</Text>
       </TouchableOpacity>
       {Platform.OS === 'web' && (
         <>

@@ -4,6 +4,8 @@ export interface RecognizedProduct {
   category: 'fruits' | 'vegetables' | 'dairy' | 'meat' | 'pantry' | 'beverages' | 'snacks' | 'frozen' | 'other';
   suggestedExpirationDays: number;
   barcode?: string;
+  detectedQuantity?: number;
+  detectedUnit?: string;
 }
 
 export interface RecognitionResult {
@@ -95,11 +97,35 @@ export class AIService {
         // Generate confidence score between 70-95%
         const confidence = 0.7 + Math.random() * 0.25;
         
+        // Simulate quantity detection (70% accuracy)
+        const shouldDetectQuantity = Math.random() < 0.7;
+        let detectedQuantity: number | undefined;
+        let detectedUnit: string | undefined;
+        
+        if (shouldDetectQuantity) {
+          // Generate realistic quantities based on product type
+          if (product.category === 'fruits' || product.category === 'vegetables') {
+            detectedQuantity = Math.floor(Math.random() * 5) + 1; // 1-5 pieces
+            detectedUnit = Math.random() < 0.5 ? 'piece' : 'pieces';
+          } else if (product.category === 'dairy' || product.category === 'meat') {
+            detectedQuantity = Math.floor(Math.random() * 2) + 1; // 1-2 items
+            detectedUnit = 'piece';
+          } else if (product.category === 'pantry') {
+            detectedQuantity = Math.floor(Math.random() * 3) + 1; // 1-3 items
+            detectedUnit = Math.random() < 0.3 ? 'pack' : 'piece';
+          } else {
+            detectedQuantity = Math.floor(Math.random() * 2) + 1; // 1-2 items
+            detectedUnit = 'piece';
+          }
+        }
+        
         products.push({
           name: product.name,
           confidence,
           category: product.category,
           suggestedExpirationDays: product.expirationDays,
+          detectedQuantity,
+          detectedUnit,
         });
       }
     } else {
@@ -113,6 +139,8 @@ export class AIService {
         confidence: 0.3 + Math.random() * 0.3, // 30-60% confidence
         category: product.category,
         suggestedExpirationDays: product.expirationDays,
+        detectedQuantity: Math.floor(Math.random() * 2) + 1,
+        detectedUnit: 'piece',
       });
     }
     

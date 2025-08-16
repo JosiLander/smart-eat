@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { RecipeService, Recipe } from '../services/RecipeService';
 import { InventoryService, InventoryItem } from '../services/InventoryService';
+import { GroceryListService } from '../services/GroceryListService';
 
 interface RecipeDetailScreenProps {
   recipeId: string;
@@ -77,19 +78,45 @@ export const RecipeDetailScreen: React.FC<RecipeDetailScreenProps> = ({
     
     return recipe.ingredients
       .filter(ing => !ing.isOptional && !checkIngredientAvailability(ing.name))
-      .map(ing => `${ing.name} (${ing.amount} ${ing.unit})`);
+      .map(ing => ({
+        name: ing.name,
+        amount: ing.amount,
+        unit: ing.unit,
+        category: (ing.category as 'fruits' | 'vegetables' | 'dairy' | 'meat' | 'pantry' | 'beverages' | 'snacks' | 'frozen' | 'other') || 'other'
+      }));
   };
 
-  const handleAddToGroceryList = () => {
+  const handleAddToGroceryList = async () => {
     const missingIngredients = getMissingIngredients();
     if (missingIngredients.length === 0) {
       Alert.alert('Great!', 'You have all the ingredients needed for this recipe!');
       return;
     }
     
-    if (onAddToGroceryList) {
-      onAddToGroceryList(missingIngredients);
-      Alert.alert('Added!', 'Missing ingredients have been added to your grocery list.');
+    try {
+      const activeList = await GroceryListService.getActiveList();
+      if (!activeList) {
+        Alert.alert('Error', 'No active grocery list found. Please create a grocery list first.');
+        return;
+      }
+
+      const result = await GroceryListService.addItemsFromRecipe(
+        activeList.id,
+        missingIngredients,
+        recipeId
+      );
+
+      if (result.success) {
+        Alert.alert(
+          'Added to Grocery List!', 
+          `${missingIngredients.length} missing ingredients have been added to your grocery list.`
+        );
+      } else {
+        Alert.alert('Error', result.error || 'Failed to add ingredients to grocery list.');
+      }
+    } catch (error) {
+      console.error('Failed to add ingredients to grocery list:', error);
+      Alert.alert('Error', 'Failed to add ingredients to grocery list. Please try again.');
     }
   };
 
