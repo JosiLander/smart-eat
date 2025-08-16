@@ -47,15 +47,31 @@ export const GroceryListScreen: React.FC<GroceryListScreenProps> = ({
   const [newItemNotes, setNewItemNotes] = useState('');
 
   useEffect(() => {
-    loadActiveList();
-    loadSuggestions();
-    loadInventory();
+    initializeAndLoad();
   }, []);
+
+  const initializeAndLoad = async () => {
+    try {
+      // Initialize the grocery list service first
+      await GroceryListService.initialize();
+      
+      // Then load all data
+      await Promise.all([
+        loadActiveList(),
+        loadSuggestions(),
+        loadInventory()
+      ]);
+    } catch (error) {
+      console.error('Failed to initialize grocery list screen:', error);
+    }
+  };
 
   const loadActiveList = async () => {
     try {
+      console.log('Loading active list...');
       setLoading(true);
       const list = await GroceryListService.getActiveList();
+      console.log('Active list loaded:', list);
       setActiveList(list);
     } catch (error) {
       console.error('Failed to load active list:', error);
@@ -83,9 +99,30 @@ export const GroceryListScreen: React.FC<GroceryListScreenProps> = ({
   };
 
   const handleAddItem = async () => {
-    if (!newItemName.trim() || !activeList) return;
+    console.log('handleAddItem called with:', {
+      name: newItemName,
+      quantity: newItemQuantity,
+      unit: newItemUnit,
+      category: newItemCategory,
+      notes: newItemNotes,
+      activeList: activeList?.id
+    });
+
+    if (!newItemName.trim() || !activeList) {
+      console.log('Validation failed:', { name: newItemName, activeList: !!activeList });
+      return;
+    }
 
     const quantity = parseInt(newItemQuantity) || 1;
+    
+    console.log('Calling GroceryListService.addItem with:', {
+      listId: activeList.id,
+      name: newItemName.trim(),
+      quantity,
+      unit: newItemUnit,
+      category: newItemCategory,
+      notes: newItemNotes.trim() || undefined
+    });
     
     const result = await GroceryListService.addItem(
       activeList.id,
@@ -96,11 +133,16 @@ export const GroceryListScreen: React.FC<GroceryListScreenProps> = ({
       newItemNotes.trim() || undefined
     );
 
+    console.log('Add item result:', result);
+
     if (result.success) {
+      console.log('Item added successfully, refreshing list...');
       setShowAddModal(false);
       resetForm();
-      loadActiveList(); // Refresh the list
+      await loadActiveList(); // Refresh the list
+      console.log('List refreshed');
     } else {
+      console.error('Failed to add item:', result.error);
       Alert.alert('Error', result.error || 'Failed to add item');
     }
   };
@@ -239,7 +281,13 @@ export const GroceryListScreen: React.FC<GroceryListScreenProps> = ({
   };
 
   const handleAddSuggestion = async (suggestion: GroceryItem) => {
-    if (!activeList) return;
+    console.log('handleAddSuggestion called with:', suggestion);
+    console.log('Active list:', activeList?.id);
+
+    if (!activeList) {
+      console.log('No active list found');
+      return;
+    }
 
     const result = await GroceryListService.addItem(
       activeList.id,
@@ -249,9 +297,16 @@ export const GroceryListScreen: React.FC<GroceryListScreenProps> = ({
       suggestion.category
     );
 
+    console.log('Add suggestion result:', result);
+
     if (result.success) {
+      console.log('Suggestion added successfully, refreshing list...');
       setShowSuggestions(false);
-      loadActiveList(); // Refresh the list
+      await loadActiveList(); // Refresh the list
+      console.log('List refreshed after suggestion');
+    } else {
+      console.error('Failed to add suggestion:', result.error);
+      Alert.alert('Error', result.error || 'Failed to add suggestion');
     }
   };
 

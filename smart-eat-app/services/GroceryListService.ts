@@ -38,12 +38,17 @@ export class GroceryListService {
 
   static async initialize(): Promise<void> {
     try {
+      console.log('GroceryListService.initialize called');
       // Check if localStorage is available (for test environment)
       if (typeof localStorage !== 'undefined') {
+        console.log('localStorage is available');
         const stored = localStorage.getItem(this.STORAGE_KEY);
+        console.log('Stored data:', stored);
         if (stored) {
           this.lists = JSON.parse(stored);
+          console.log('Loaded existing lists:', this.lists);
         } else {
+          console.log('No stored data, creating default list');
           // Create a default active list
           this.lists = [{
             id: 'default',
@@ -53,9 +58,11 @@ export class GroceryListService {
             updatedAt: new Date().toISOString(),
             isActive: true,
           }];
+          console.log('Created default list:', this.lists);
           await this.saveToStorage();
         }
       } else {
+        console.log('localStorage not available, using fallback');
         // Fallback for environments without localStorage (like tests)
         this.lists = [{
           id: 'default',
@@ -66,6 +73,7 @@ export class GroceryListService {
           isActive: true,
         }];
       }
+      console.log('Initialization complete, lists:', this.lists);
     } catch (error) {
       console.error('Failed to initialize grocery list service:', error);
       // Fallback to default list
@@ -85,7 +93,9 @@ export class GroceryListService {
   }
 
   static async getActiveList(): Promise<GroceryList | null> {
+    console.log('getActiveList called, current lists:', this.lists);
     const activeList = this.lists.find(list => list.isActive);
+    console.log('Found active list:', activeList);
     return activeList ? { ...activeList } : null;
   }
 
@@ -135,8 +145,23 @@ export class GroceryListService {
     recipeId?: string
   ): Promise<AddItemResult> {
     try {
+      console.log('GroceryListService.addItem called with:', {
+        listId,
+        name,
+        quantity,
+        unit,
+        category,
+        notes,
+        source,
+        recipeId
+      });
+      console.log('Current lists:', this.lists);
+      
       const list = this.lists.find(l => l.id === listId);
+      console.log('Found list:', list);
+      
       if (!list) {
+        console.log('List not found for ID:', listId);
         return {
           success: false,
           error: 'List not found',
@@ -172,7 +197,9 @@ export class GroceryListService {
       }
 
       list.updatedAt = new Date().toISOString();
+      console.log('Updated list:', list);
       await this.saveToStorage();
+      console.log('Saved to storage');
 
       return {
         success: true,
@@ -356,8 +383,14 @@ export class GroceryListService {
 
   private static async saveToStorage(): Promise<void> {
     try {
+      console.log('saveToStorage called, saving lists:', this.lists);
       if (typeof localStorage !== 'undefined') {
-        localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.lists));
+        const dataToSave = JSON.stringify(this.lists);
+        console.log('Saving data to localStorage:', dataToSave);
+        localStorage.setItem(this.STORAGE_KEY, dataToSave);
+        console.log('Data saved successfully');
+      } else {
+        console.log('localStorage not available, skipping save');
       }
     } catch (error) {
       console.error('Failed to save grocery lists to storage:', error);
