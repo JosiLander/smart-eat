@@ -1,62 +1,67 @@
 import React, { useState, useEffect } from 'react';
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View, TouchableOpacity, Alert, Platform, Image } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Alert,
+  Platform,
+  StatusBar,
+  SafeAreaView,
+  Image,
+} from 'react-native';
 import { CameraScreen } from './components/CameraScreen';
-import { PhotoPreview } from './components/PhotoPreview';
 import { ScanResultsScreen } from './components/ScanResultsScreen';
 import { RecipeSuggestionsScreen } from './components/RecipeSuggestionsScreen';
 import { RecipeDetailScreen } from './components/RecipeDetailScreen';
 import { InventoryOverviewScreen } from './components/InventoryOverviewScreen';
 import { InventoryItemDetailScreen } from './components/InventoryItemDetailScreen';
 import { GroceryListScreen } from './components/GroceryListScreen';
-import { PermissionService, PermissionStatus } from './services/PermissionService';
+import { PhotoPreview } from './components/PhotoPreview';
+import { BottomNavigationBar, TabType } from './components/BottomNavigationBar';
+import { PermissionService } from './services/PermissionService';
 import { ImageService } from './services/ImageService';
-import { ScanningService, ScanResult } from './services/ScanningService';
 import { InventoryService, InventoryItem } from './services/InventoryService';
-import { GroceryListService } from './services/GroceryListService';
+import { RecipeService } from './services/RecipeService';
 
-type AppState = 'loading' | 'permission-denied' | 'main' | 'camera' | 'preview' | 'scan-results' | 'recipe-suggestions' | 'recipe-detail' | 'inventory-overview' | 'inventory-item-detail' | 'grocery-list';
+type AppState = 
+  | 'loading' 
+  | 'permission-denied' 
+  | 'main' 
+  | 'camera' 
+  | 'preview' 
+  | 'scan-results' 
+  | 'recipe-suggestions' 
+  | 'recipe-detail' 
+  | 'inventory-overview' 
+  | 'inventory-item-detail' 
+  | 'grocery-list';
 
 export default function App() {
   const [appState, setAppState] = useState<AppState>('loading');
-  const [permissionStatus, setPermissionStatus] = useState<PermissionStatus>({
-    camera: false,
-    mediaLibrary: false,
-  });
+  const [activeTab, setActiveTab] = useState<TabType>('scan');
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
-  const [scanResult, setScanResult] = useState<ScanResult | null>(null);
+  const [scanResult, setScanResult] = useState<any>(null);
   const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null);
   const [selectedInventoryItem, setSelectedInventoryItem] = useState<InventoryItem | null>(null);
   const [debugInfo, setDebugInfo] = useState<string>('');
 
   useEffect(() => {
     initializeApp();
-    // Initialize services
-    InventoryService.initialize();
-    GroceryListService.initialize();
   }, []);
 
   const initializeApp = async () => {
     try {
       console.log('Initializing app...');
       console.log('Platform:', Platform.OS);
-      
-      // Web-specific handling
-      if (Platform.OS === 'web') {
-        console.log('Running on web platform');
-        setDebugInfo('Web platform detected');
-        
-        // For web, we'll skip the strict permission check initially
-        // and let the camera component handle permissions
-        setAppState('main');
-        return;
-      }
 
-      const permissions = await PermissionService.ensurePermissions();
-      setPermissionStatus(permissions);
-      
+      // Initialize services
+      await InventoryService.initialize();
+
+      // Check permissions
+      const permissions = await PermissionService.checkPermissions();
       console.log('Permission status:', permissions);
-      
+
       if (permissions.camera && permissions.mediaLibrary) {
         setAppState('main');
       } else {
@@ -69,32 +74,56 @@ export default function App() {
     }
   };
 
-  const handlePhotoCaptured = async (photoUri: string) => {
-    console.log('Photo captured:', photoUri);
-    setCapturedImage(photoUri);
-    
+  const requestPermissions = async () => {
     try {
-      // Start AI scanning process
-      console.log('Starting AI scan...');
-      const result = await ScanningService.scanImage(photoUri);
-      setScanResult(result);
-      
-      if (result.success) {
-        setAppState('scan-results');
+      console.log('Requesting permissions...');
+      const permissions = await PermissionService.requestPermissions();
+      console.log('New permission status:', permissions);
+
+      if (permissions.camera && permissions.mediaLibrary) {
+        setAppState('main');
       } else {
-        // Fall back to preview if scan fails
-        setAppState('preview');
+        Alert.alert(
+          'Permissions Required',
+          'Camera and photo library access are required to use this app. Please enable them in Settings.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Settings', onPress: () => {
+              // In a real app, you'd open settings here
+              console.log('Open settings');
+            }}
+          ]
+        );
       }
     } catch (error) {
-      console.error('Scan failed:', error);
-      setAppState('preview');
+      console.error('Permission request error:', error);
+      Alert.alert('Error', 'Failed to request permissions. Please try again.');
     }
   };
 
-  const handleRetakePhoto = () => {
-    console.log('Retaking photo');
-    setCapturedImage(null);
-    setAppState('camera');
+  const handleTabPress = (tab: TabType) => {
+    setActiveTab(tab);
+    
+    switch (tab) {
+      case 'scan':
+        setAppState('main');
+        break;
+      case 'recipes':
+        setAppState('recipe-suggestions');
+        break;
+      case 'inventory':
+        setAppState('inventory-overview');
+        break;
+      case 'grocery':
+        setAppState('grocery-list');
+        break;
+    }
+  };
+
+  const handlePhotoCapture = (imageUri: string) => {
+    console.log('Photo captured:', imageUri);
+    setCapturedImage(imageUri);
+    setAppState('preview');
   };
 
   const handleUsePhoto = async () => {
@@ -148,6 +177,11 @@ export default function App() {
     setAppState('recipe-suggestions');
   };
 
+  const handleViewGroceryList = () => {
+    console.log('Opening grocery list...');
+    setAppState('grocery-list');
+  };
+
   const handleViewRecipe = (recipeId: string) => {
     setSelectedRecipeId(recipeId);
     setAppState('recipe-detail');
@@ -159,6 +193,12 @@ export default function App() {
   };
 
   const handleRecipeSuggestionsBack = () => {
+    setActiveTab('scan');
+    setAppState('main');
+  };
+
+  const handleInventoryOverviewBack = () => {
+    setActiveTab('scan');
     setAppState('main');
   };
 
@@ -166,15 +206,6 @@ export default function App() {
     // TODO: Implement grocery list functionality
     console.log('Adding to grocery list:', missingIngredients);
     Alert.alert('Coming Soon', 'Grocery list functionality will be available in the next update!');
-  };
-
-  const handleViewInventoryOverview = () => {
-    console.log('Opening inventory overview...');
-    setAppState('inventory-overview');
-  };
-
-  const handleInventoryOverviewBack = () => {
-    setAppState('main');
   };
 
   const handleViewInventoryItem = (item: InventoryItem) => {
@@ -193,12 +224,8 @@ export default function App() {
     console.log('Inventory item updated, refreshing...');
   };
 
-  const handleViewGroceryList = () => {
-    console.log('Opening grocery list...');
-    setAppState('grocery-list');
-  };
-
   const handleGroceryListBack = () => {
+    setActiveTab('scan');
     setAppState('main');
   };
 
@@ -214,61 +241,62 @@ export default function App() {
 
   const handleDemoMode = () => {
     console.log('Starting demo mode...');
-    // Use a sample image for demo purposes
-    const demoImageUri = 'https://via.placeholder.com/400x300/3498db/ffffff?text=Demo+Grocery+Photo';
-    setCapturedImage(demoImageUri);
-    setAppState('preview');
+    // Simulate a successful scan
+    setCapturedImage('demo-image-uri');
+    setScanResult({
+      products: [
+        {
+          name: 'Apple',
+          confidence: 0.95,
+          category: 'fruits',
+          suggestedExpirationDays: 7,
+        },
+        {
+          name: 'Banana',
+          confidence: 0.92,
+          category: 'fruits',
+          suggestedExpirationDays: 5,
+        },
+      ],
+      processingTime: 1500,
+    });
+    setAppState('scan-results');
   };
 
-  const handleRequestPermissions = async () => {
-    console.log('Requesting permissions...');
-    const permissions = await PermissionService.requestPermissions();
-    setPermissionStatus(permissions);
-    
-    console.log('New permission status:', permissions);
-    
-    if (permissions.camera && permissions.mediaLibrary) {
-      setAppState('main');
-    }
+  const handleRetakePhoto = () => {
+    setCapturedImage(null);
+    setScanResult(null);
+    setAppState('camera');
   };
 
   // Loading state
   if (appState === 'loading') {
     return (
-      <View style={styles.container}>
-        <Image 
-          source={require('./assets/Gemini_Generated_Image_2h56jp2h56jp2h56.png')}
-          style={styles.logo}
-          resizeMode="cover"
-        />
-        <Text style={styles.loadingText}>Initializing...</Text>
-        {debugInfo ? <Text style={styles.debugText}>{debugInfo}</Text> : null}
-      </View>
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Loading Smart-Eat...</Text>
+        </View>
+      </SafeAreaView>
     );
   }
 
   // Permission denied state
   if (appState === 'permission-denied') {
     return (
-      <View style={styles.container}>
-        <Image 
-          source={require('./assets/Gemini_Generated_Image_2h56jp2h56jp2h56.png')}
-          style={styles.logo}
-          resizeMode="cover"
-        />
-        <Text style={styles.errorText}>Camera and Media Library permissions are required</Text>
-        <Text style={styles.debugText}>Platform: {Platform.OS}</Text>
-        <Text style={styles.debugText}>Camera: {permissionStatus.camera ? 'Granted' : 'Denied'}</Text>
-        <Text style={styles.debugText}>Media Library: {permissionStatus.mediaLibrary ? 'Granted' : 'Denied'}</Text>
-        <TouchableOpacity style={styles.button} onPress={handleRequestPermissions}>
-          <Text style={styles.buttonText}>Grant Permissions</Text>
-        </TouchableOpacity>
-        {Platform.OS === 'web' && (
-          <TouchableOpacity style={styles.button} onPress={() => setAppState('main')}>
-            <Text style={styles.buttonText}>Continue Anyway (Web)</Text>
+      <SafeAreaView style={styles.container}>
+        <View style={styles.permissionContainer}>
+          <Text style={styles.permissionTitle}>Permissions Required</Text>
+          <Text style={styles.permissionText}>
+            Smart-Eat needs camera and photo library access to scan groceries and manage your inventory.
+          </Text>
+          <TouchableOpacity style={styles.permissionButton} onPress={requestPermissions}>
+            <Text style={styles.permissionButtonText}>Grant Permissions</Text>
           </TouchableOpacity>
-        )}
-      </View>
+          {debugInfo && (
+            <Text style={styles.debugText}>{debugInfo}</Text>
+          )}
+        </View>
+      </SafeAreaView>
     );
   }
 
@@ -276,131 +304,156 @@ export default function App() {
   if (appState === 'camera') {
     return (
       <CameraScreen
-        onPhotoCaptured={handlePhotoCaptured}
+        onPhotoCaptured={handlePhotoCapture}
         onClose={handleCloseCamera}
       />
     );
   }
 
-          // Scan Results state
-        if (appState === 'scan-results' && capturedImage && scanResult) {
-          return (
-            <ScanResultsScreen
-              scanResult={scanResult}
-              imageUri={capturedImage}
-              onConfirm={handleScanResultsConfirm}
-              onRetake={handleRetakePhoto}
-              onCancel={handleScanResultsCancel}
-            />
-          );
-        }
+  // Preview state
+  if (appState === 'preview' && capturedImage) {
+    return (
+      <PhotoPreview
+        imageUri={capturedImage}
+        onRetake={handleRetakePhoto}
+        onUsePhoto={handleUsePhoto}
+      />
+    );
+  }
 
-        // Recipe Suggestions state
-        if (appState === 'recipe-suggestions') {
-          return (
-            <RecipeSuggestionsScreen
-              onBack={handleRecipeSuggestionsBack}
-              onViewRecipe={handleViewRecipe}
-              onScanItems={handleStartCamera}
-            />
-          );
-        }
+  // Scan results state
+  if (appState === 'scan-results' && scanResult && capturedImage) {
+    return (
+      <ScanResultsScreen
+        scanResult={scanResult}
+        imageUri={capturedImage}
+        onConfirm={handleScanResultsConfirm}
+        onRetake={handleRetakePhoto}
+        onCancel={handleScanResultsCancel}
+      />
+    );
+  }
 
-        // Recipe Detail state
-        if (appState === 'recipe-detail' && selectedRecipeId) {
-          return (
-            <RecipeDetailScreen
-              recipeId={selectedRecipeId}
-              onBack={handleRecipeBack}
-              onAddToGroceryList={handleAddToGroceryList}
-            />
-          );
-        }
-
-        // Inventory Overview state
-        if (appState === 'inventory-overview') {
-          return (
-            <InventoryOverviewScreen
-              onBack={handleInventoryOverviewBack}
-              onViewItem={handleViewInventoryItem}
-            />
-          );
-        }
-
-        // Inventory Item Detail state
-        if (appState === 'inventory-item-detail' && selectedInventoryItem) {
-          return (
-            <InventoryItemDetailScreen
-              item={selectedInventoryItem}
-              onBack={handleInventoryItemDetailBack}
-              onItemUpdated={handleInventoryItemUpdated}
-            />
-          );
-        }
-
-        // Grocery List state
-        if (appState === 'grocery-list') {
-          return (
-            <GroceryListScreen
-              onBack={handleGroceryListBack}
-            />
-          );
-        }
-
-        // Preview state (fallback)
-        if (appState === 'preview' && capturedImage) {
-          return (
-            <PhotoPreview
-              imageUri={capturedImage}
-              onRetake={handleRetakePhoto}
-              onUsePhoto={handleUsePhoto}
-            />
-          );
-        }
-
-  // Main screen
-  return (
-    <View style={styles.container}>
-      <View style={styles.headerSection}>
-        <Image 
-          source={require('./assets/Gemini_Generated_Image_2h56jp2h56jp2h56.png')}
-          style={styles.logo}
-          resizeMode="cover"
-        />
-        <View style={styles.titleContainer}>
-          <Text style={styles.title}>Smart Eat</Text>
-          <Text style={styles.subtitle}>Grocery Scanner</Text>
+  // Recipe suggestions state
+  if (appState === 'recipe-suggestions') {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.content}>
+          <RecipeSuggestionsScreen
+            onBack={handleRecipeSuggestionsBack}
+            onViewRecipe={handleViewRecipe}
+            onScanItems={handleStartCamera}
+          />
         </View>
-      </View>
-      <TouchableOpacity style={styles.scanButton} onPress={handleStartCamera}>
-        <Text style={styles.scanButtonText}>Scan Groceries</Text>
-      </TouchableOpacity>
-      
-      <TouchableOpacity style={styles.secondaryButton} onPress={handleViewRecipeSuggestions}>
-        <Text style={styles.secondaryButtonText}>🍳 Recipe Suggestions</Text>
-      </TouchableOpacity>
-      
-      <TouchableOpacity style={styles.secondaryButton} onPress={handleViewInventoryOverview}>
-        <Text style={styles.secondaryButtonText}>📦 Inventory Overview</Text>
-      </TouchableOpacity>
-      
-      <TouchableOpacity style={styles.secondaryButton} onPress={handleViewGroceryList}>
-        <Text style={styles.secondaryButtonText}>🛒 Grocery List</Text>
-      </TouchableOpacity>
-      {Platform.OS === 'web' && (
-        <>
-          <TouchableOpacity style={styles.demoButton} onPress={handleDemoMode}>
-            <Text style={styles.demoButtonText}>Try Demo Mode</Text>
-          </TouchableOpacity>
-          <View style={styles.webInfo}>
-            <Text style={styles.webInfoText}>Web Platform</Text>
-            <Text style={styles.webInfoText}>Camera access may be limited</Text>
-            <Text style={styles.webInfoText}>Use Demo Mode to test the flow</Text>
+        <BottomNavigationBar
+          activeTab="recipes"
+          onTabPress={handleTabPress}
+        />
+        <StatusBar barStyle="dark-content" />
+      </SafeAreaView>
+    );
+  }
+
+  // Recipe Detail state
+  if (appState === 'recipe-detail' && selectedRecipeId) {
+    return (
+      <RecipeDetailScreen
+        recipeId={selectedRecipeId}
+        onBack={handleRecipeBack}
+        onAddToGroceryList={handleAddToGroceryList}
+      />
+    );
+  }
+
+  // Inventory Overview state
+  if (appState === 'inventory-overview') {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.content}>
+          <InventoryOverviewScreen
+            onBack={handleInventoryOverviewBack}
+            onViewItem={handleViewInventoryItem}
+            onScanItems={handleStartCamera}
+          />
+        </View>
+        <BottomNavigationBar
+          activeTab="inventory"
+          onTabPress={handleTabPress}
+        />
+        <StatusBar barStyle="dark-content" />
+      </SafeAreaView>
+    );
+  }
+
+  // Inventory Item Detail state
+  if (appState === 'inventory-item-detail' && selectedInventoryItem) {
+    return (
+      <InventoryItemDetailScreen
+        item={selectedInventoryItem}
+        onBack={handleInventoryItemDetailBack}
+        onItemUpdated={handleInventoryItemUpdated}
+      />
+    );
+  }
+
+  // Grocery List state
+  if (appState === 'grocery-list') {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.content}>
+          <GroceryListScreen
+            onBack={handleGroceryListBack}
+          />
+        </View>
+        <BottomNavigationBar
+          activeTab="grocery"
+          onTabPress={handleTabPress}
+        />
+        <StatusBar barStyle="dark-content" />
+      </SafeAreaView>
+    );
+  }
+
+  // Main screen with bottom navigation
+  return (
+    <SafeAreaView style={styles.container}>
+      <View style={styles.content}>
+        <View style={styles.headerSection}>
+          <Image 
+            source={require('./assets/Gemini_Generated_Image_2h56jp2h56jp2h56.png')}
+            style={styles.logo}
+            resizeMode="cover"
+          />
+          <View style={styles.titleContainer}>
+            <Text style={styles.title}>Smart Eat</Text>
+            <Text style={styles.subtitle}>Grocery Scanner</Text>
           </View>
-        </>
-      )}
-      <StatusBar style="auto" />
-    </View>
+        </View>
+        
+        <TouchableOpacity style={styles.scanButton} onPress={handleStartCamera}>
+          <Text style={styles.scanButtonText}>Scan Groceries</Text>
+        </TouchableOpacity>
+        
+        {Platform.OS === 'web' && (
+          <>
+            <TouchableOpacity style={styles.demoButton} onPress={handleDemoMode}>
+              <Text style={styles.demoButtonText}>Try Demo Mode</Text>
+            </TouchableOpacity>
+            <View style={styles.webInfo}>
+              <Text style={styles.webInfoText}>Web Platform</Text>
+              <Text style={styles.webInfoText}>Camera access may be limited</Text>
+              <Text style={styles.webInfoText}>Use Demo Mode to test the flow</Text>
+            </View>
+          </>
+        )}
+      </View>
+      
+      <BottomNavigationBar
+        activeTab={activeTab}
+        onTabPress={handleTabPress}
+      />
+      <StatusBar barStyle="dark-content" />
+    </SafeAreaView>
   );
 }
 
@@ -411,6 +464,64 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 20,
+    color: '#3498db',
+    fontWeight: 'bold',
+  },
+  permissionContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  permissionTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#e74c3c',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  permissionText: {
+    fontSize: 18,
+    color: '#34495e',
+    textAlign: 'center',
+    marginBottom: 25,
+    lineHeight: 25,
+  },
+  permissionButton: {
+    backgroundColor: '#27ae60',
+    paddingHorizontal: 30,
+    paddingVertical: 15,
+    borderRadius: 25,
+    elevation: 5,
+    shadowColor: '#27ae60',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+  },
+  permissionButtonText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  debugText: {
+    fontSize: 12,
+    color: '#95a5a6',
+    textAlign: 'center',
+    marginTop: 10,
+  },
+  content: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 20, // Adjust for safe area
   },
   headerSection: {
     alignItems: 'center',
@@ -471,18 +582,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 0.5,
   },
-  button: {
-    backgroundColor: '#27ae60',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
-    marginTop: 20,
-  },
-  buttonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
   secondaryButton: {
     backgroundColor: 'white',
     paddingHorizontal: 28,
@@ -502,22 +601,6 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '700',
     letterSpacing: 0.3,
-  },
-  loadingText: {
-    fontSize: 18,
-    color: '#7f8c8d',
-  },
-  errorText: {
-    fontSize: 16,
-    color: '#e74c3c',
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  debugText: {
-    fontSize: 12,
-    color: '#95a5a6',
-    textAlign: 'center',
-    marginTop: 5,
   },
   webInfo: {
     marginTop: 20,

@@ -108,6 +108,54 @@ export class InventoryService {
     }
   }
 
+  static async addItemFromGroceryList(
+    groceryItem: {
+      name: string;
+      quantity: number;
+      unit: string;
+      category: string;
+      expiryDate: string;
+      notes?: string;
+    }
+  ): Promise<AddItemResult> {
+    try {
+      const expirationDate = new Date(groceryItem.expiryDate);
+      const daysUntilExpiry = Math.ceil((expirationDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+
+      const item: InventoryItem = {
+        id: this.generateId(),
+        name: groceryItem.name,
+        category: groceryItem.category as any,
+        quantity: groceryItem.quantity,
+        unit: groceryItem.unit,
+        expirationDate,
+        addedDate: new Date(),
+        imageUri: undefined,
+        confidence: 1.0,
+        isExpired: daysUntilExpiry < 0,
+        daysUntilExpiry,
+        notes: groceryItem.notes,
+      };
+
+      this.inventory.push(item);
+      this.updateComputedFields();
+      await this.saveToStorage();
+
+      console.log('Added grocery item to inventory:', item);
+      
+      return {
+        success: true,
+        item,
+      };
+    } catch (error) {
+      console.error('Failed to add grocery item:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+
   static async updateItem(id: string, updates: Partial<InventoryItem>): Promise<boolean> {
     try {
       const index = this.inventory.findIndex(item => item.id === id);

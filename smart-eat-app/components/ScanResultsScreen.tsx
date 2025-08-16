@@ -275,13 +275,15 @@ export const ScanResultsScreen: React.FC<ScanResultsScreenProps> = ({
 
       {/* Action Buttons */}
       <View style={styles.actions}>
-        <TouchableOpacity style={styles.secondaryButton} onPress={onRetake}>
-          <Text style={styles.secondaryButtonText}>Retake Photo</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.secondaryButton} onPress={onCancel}>
-          <Text style={styles.secondaryButtonText}>Cancel</Text>
-        </TouchableOpacity>
+        <View style={styles.buttonRow}>
+          <TouchableOpacity style={styles.secondaryButton} onPress={onRetake}>
+            <Text style={styles.secondaryButtonText}>Retake Photo</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity style={styles.secondaryButton} onPress={onCancel}>
+            <Text style={styles.secondaryButtonText}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
         
         <TouchableOpacity 
           style={[styles.primaryButton, isProcessing && styles.primaryButtonDisabled]}
@@ -530,53 +532,67 @@ const styles = StyleSheet.create({
     color: '#95a5a6',
   },
   actions: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     padding: 20,
     backgroundColor: 'white',
     borderTopWidth: 1,
     borderTopColor: '#e0e0e0',
   },
+  buttonRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+    gap: 12,
+  },
   primaryButton: {
-    flex: 1,
     backgroundColor: '#27ae60',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
     borderRadius: 12,
     alignItems: 'center',
-    marginLeft: 8,
-    elevation: 3,
+    justifyContent: 'center',
+    elevation: 4,
     shadowColor: '#27ae60',
-    shadowOffset: { width: 0, height: 3 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
-    shadowRadius: 6,
+    shadowRadius: 4,
+    borderWidth: 1,
+    borderColor: '#229954',
+    minHeight: 56,
   },
   primaryButtonDisabled: {
     backgroundColor: '#bdc3c7',
+    elevation: 2,
+    shadowOpacity: 0.2,
+    borderColor: '#bdc3c7',
   },
   primaryButtonText: {
     color: 'white',
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '700',
+    letterSpacing: 0.5,
   },
   secondaryButton: {
     flex: 1,
     backgroundColor: 'white',
     paddingVertical: 14,
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     borderRadius: 12,
     alignItems: 'center',
-    marginRight: 8,
+    justifyContent: 'center',
     borderWidth: 2,
     borderColor: '#e9ecef',
-    elevation: 1,
+    elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.1,
     shadowRadius: 2,
+    minHeight: 48,
   },
   secondaryButtonText: {
     color: '#2c3e50',
     fontSize: 16,
     fontWeight: '600',
+    letterSpacing: 0.3,
   },
 }); 

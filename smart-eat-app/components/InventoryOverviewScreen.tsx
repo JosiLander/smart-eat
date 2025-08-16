@@ -16,6 +16,7 @@ import { getExpiryColorInfo, formatDate, getDaysUntilExpiry } from '../utils/dat
 interface InventoryOverviewScreenProps {
   onBack: () => void;
   onViewItem: (item: InventoryItem) => void;
+  onScanItems?: () => void;
 }
 
 type ExpiryCategory = 'safe' | 'warning' | 'danger' | 'expired';
@@ -33,6 +34,7 @@ interface CategoryData {
 export const InventoryOverviewScreen: React.FC<InventoryOverviewScreenProps> = ({
   onBack,
   onViewItem,
+  onScanItems,
 }) => {
   const [loading, setLoading] = useState(true);
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
@@ -261,7 +263,7 @@ export const InventoryOverviewScreen: React.FC<InventoryOverviewScreenProps> = (
           subtitle="Start by scanning some groceries to build your inventory"
           icon="📦"
           actionText="Scan Items"
-          onAction={onBack}
+          onAction={onScanItems || onBack}
         />
       ) : (
         renderCategoryList()

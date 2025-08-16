@@ -182,23 +182,10 @@ export const GroceryListScreen: React.FC<GroceryListScreenProps> = ({
   };
 
   const handleDatePickerChange = (event: any, date?: Date) => {
-    if (Platform.OS === 'android') {
-      setShowDatePicker(false);
-    }
-    
-    if (event.type === 'set' && date && currentDateItem) {
+    if (date && currentDateItem) {
       const formattedDate = date.toISOString().split('T')[0]; // YYYY-MM-DD format
       setExpiryDates(prev => ({ ...prev, [currentDateItem]: formattedDate }));
-    }
-    
-    if (Platform.OS === 'ios') {
-      if (event.type === 'dismissed') {
-        setShowDatePicker(false);
-      }
-    }
-    
-    if (event.type === 'set' || event.type === 'dismissed') {
-      setCurrentDateItem(null);
+      setSelectedDate(date);
     }
   };
 
@@ -217,20 +204,18 @@ export const GroceryListScreen: React.FC<GroceryListScreenProps> = ({
     try {
       // Transfer items to inventory with expiry dates
       for (const item of purchasedItems) {
-        const expiryDate = new Date(expiryDates[item.id]);
-        const daysUntilExpiry = Math.ceil((expiryDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
-        
-        await InventoryService.addItem({
+        const result = await InventoryService.addItemFromGroceryList({
           name: item.name,
           quantity: item.quantity,
           unit: item.unit,
           category: item.category,
-          expiryDate: expiryDate.toISOString(),
-          daysUntilExpiry,
-          isExpired: daysUntilExpiry < 0,
-          addedAt: new Date().toISOString(),
+          expiryDate: expiryDates[item.id],
           notes: item.notes,
         });
+
+        if (!result.success) {
+          console.error('Failed to add item to inventory:', result.error);
+        }
       }
 
       // Clear purchased items from grocery list
@@ -702,14 +687,42 @@ export const GroceryListScreen: React.FC<GroceryListScreenProps> = ({
       
       {/* Date Picker */}
       {showDatePicker && (
-        <DateTimePicker
-          value={selectedDate}
-          mode="date"
-          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-          onChange={handleDatePickerChange}
-          minimumDate={new Date()}
-          style={Platform.OS === 'ios' ? { width: 320, height: 200 } : undefined}
-        />
+        <Modal
+          visible={showDatePicker}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => {
+            setShowDatePicker(false);
+            setCurrentDateItem(null);
+          }}
+        >
+          <View style={styles.datePickerOverlay}>
+            <View style={styles.datePickerContainer}>
+              <View style={styles.datePickerHeader}>
+                <Text style={styles.datePickerTitle}>Select Expiry Date</Text>
+                <TouchableOpacity
+                  style={styles.datePickerCloseButton}
+                  onPress={() => {
+                    setShowDatePicker(false);
+                    setCurrentDateItem(null);
+                  }}
+                >
+                  <Text style={styles.datePickerCloseText}>Done</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.datePickerContent}>
+                <DateTimePicker
+                  value={selectedDate}
+                  mode="date"
+                  display="spinner"
+                  onChange={handleDatePickerChange}
+                  minimumDate={new Date()}
+                  style={styles.datePicker}
+                />
+              </View>
+            </View>
+          </View>
+        </Modal>
       )}
     </SafeAreaView>
   );
@@ -1116,17 +1129,31 @@ const styles = StyleSheet.create({
   addButton: {
     flex: 1,
     backgroundColor: '#27ae60',
-    paddingVertical: 12,
-    borderRadius: 8,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 12,
     alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 4,
+    shadowColor: '#27ae60',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    borderWidth: 1,
+    borderColor: '#229954',
+    minHeight: 56,
   },
   addButtonDisabled: {
     backgroundColor: '#bdc3c7',
+    elevation: 2,
+    shadowOpacity: 0.2,
+    borderColor: '#bdc3c7',
   },
   addButtonText: {
     color: 'white',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
   suggestionsSubtitle: {
     fontSize: 16,
@@ -1159,5 +1186,50 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: '#27ae60',
     fontWeight: 'bold',
+  },
+  datePickerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  datePickerContainer: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    width: '90%',
+    maxWidth: 400,
+    maxHeight: '80%',
+    overflow: 'hidden',
+  },
+  datePickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  datePickerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#2c3e50',
+  },
+  datePickerCloseButton: {
+    padding: 10,
+  },
+  datePickerCloseText: {
+    fontSize: 16,
+    color: '#27ae60',
+    fontWeight: '600',
+  },
+  datePickerContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  datePicker: {
+    width: 320,
+    height: 200,
   },
 });
