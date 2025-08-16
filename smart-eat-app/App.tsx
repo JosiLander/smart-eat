@@ -237,9 +237,9 @@ export default function App() {
     return (
       <View style={styles.container}>
         <Image 
-          source={require('./assets/smart-eat-logo.png')}
+          source={require('./assets/Gemini_Generated_Image_2h56jp2h56jp2h56.png')}
           style={styles.logo}
-          resizeMode="contain"
+          resizeMode="cover"
         />
         <Text style={styles.loadingText}>Initializing...</Text>
         {debugInfo ? <Text style={styles.debugText}>{debugInfo}</Text> : null}
@@ -252,9 +252,9 @@ export default function App() {
     return (
       <View style={styles.container}>
         <Image 
-          source={require('./assets/smart-eat-logo.png')}
+          source={require('./assets/Gemini_Generated_Image_2h56jp2h56jp2h56.png')}
           style={styles.logo}
-          resizeMode="contain"
+          resizeMode="cover"
         />
         <Text style={styles.errorText}>Camera and Media Library permissions are required</Text>
         <Text style={styles.debugText}>Platform: {Platform.OS}</Text>
@@ -301,6 +301,7 @@ export default function App() {
             <RecipeSuggestionsScreen
               onBack={handleRecipeSuggestionsBack}
               onViewRecipe={handleViewRecipe}
+              onScanItems={handleStartCamera}
             />
           );
         }
@@ -360,13 +361,17 @@ export default function App() {
   // Main screen
   return (
     <View style={styles.container}>
-      <Image 
-        source={require('./assets/smart-eat-logo.png')}
-        style={styles.logo}
-        resizeMode="contain"
-      />
-      <Text style={styles.title}>Smart Eat</Text>
-      <Text style={styles.subtitle}>Grocery Scanner</Text>
+      <View style={styles.headerSection}>
+        <Image 
+          source={require('./assets/Gemini_Generated_Image_2h56jp2h56jp2h56.png')}
+          style={styles.logo}
+          resizeMode="cover"
+        />
+        <View style={styles.titleContainer}>
+          <Text style={styles.title}>Smart Eat</Text>
+          <Text style={styles.subtitle}>Grocery Scanner</Text>
+        </View>
+      </View>
       <TouchableOpacity style={styles.scanButton} onPress={handleStartCamera}>
         <Text style={styles.scanButtonText}>Scan Groceries</Text>
       </TouchableOpacity>
@@ -402,45 +407,72 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#f8f9fa',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  headerSection: {
+    alignItems: 'center',
+    marginBottom: 50,
   },
   logo: {
-    width: 120,
-    height: 120,
-    marginBottom: 20,
+    width: 140,
+    height: 140,
+    marginBottom: 24,
+    borderRadius: 28,
+    backgroundColor: 'white',
+    shadowColor: '#27ae60',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    elevation: 12,
+    overflow: 'hidden',
+    borderWidth: 3,
+    borderColor: '#f0f8f0',
+  },
+  titleContainer: {
+    alignItems: 'center',
   },
   title: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: '#2c3e50',
+    fontSize: 42,
+    fontWeight: '900',
+    color: '#27ae60',
     marginBottom: 12,
-    letterSpacing: -0.5,
+    letterSpacing: -1.2,
+    textShadowColor: 'rgba(39, 174, 96, 0.1)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
   subtitle: {
-    fontSize: 18,
-    color: '#7f8c8d',
-    marginBottom: 40,
+    fontSize: 20,
+    color: '#34495e',
+    marginBottom: 0,
+    fontWeight: '600',
+    letterSpacing: 0.2,
   },
   scanButton: {
-    backgroundColor: '#3498db',
-    paddingHorizontal: 30,
-    paddingVertical: 15,
-    borderRadius: 25,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+    backgroundColor: '#27ae60',
+    paddingHorizontal: 36,
+    paddingVertical: 18,
+    borderRadius: 32,
+    elevation: 6,
+    shadowColor: '#27ae60',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    marginBottom: 24,
+    borderWidth: 2,
+    borderColor: '#2ecc71',
   },
   scanButtonText: {
     color: 'white',
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 20,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   button: {
-    backgroundColor: '#3498db',
+    backgroundColor: '#27ae60',
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 20,
@@ -452,16 +484,24 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   secondaryButton: {
-    backgroundColor: '#95a5a6',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
-    marginTop: 15,
+    backgroundColor: 'white',
+    paddingHorizontal: 28,
+    paddingVertical: 16,
+    borderRadius: 26,
+    marginTop: 14,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    borderWidth: 2,
+    borderColor: '#e9ecef',
   },
   secondaryButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
+    color: '#2c3e50',
+    fontSize: 17,
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
   loadingText: {
     fontSize: 18,
@@ -491,7 +531,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   demoButton: {
-    backgroundColor: '#2ecc71',
+    backgroundColor: '#27ae60',
     paddingHorizontal: 25,
     paddingVertical: 12,
     borderRadius: 20,

@@ -248,7 +248,7 @@ const styles = StyleSheet.create({
     color: '#2c3e50',
   },
   todayCell: {
-    backgroundColor: '#3498db',
+    backgroundColor: '#27ae60',
     borderRadius: 20,
   },
   todayText: {

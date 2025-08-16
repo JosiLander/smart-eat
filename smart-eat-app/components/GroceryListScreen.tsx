@@ -11,7 +11,9 @@ import {
   TextInput,
   Modal,
   ScrollView,
+  Button,
 } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { GroceryListService, GroceryList, GroceryItem } from '../services/GroceryListService';
 import { InventoryService, InventoryItem } from '../services/InventoryService';
 import { EmptyState } from './EmptyState';
@@ -33,6 +35,9 @@ export const GroceryListScreen: React.FC<GroceryListScreenProps> = ({
 
   const [showExpiryModal, setShowExpiryModal] = useState(false);
   const [expiryDates, setExpiryDates] = useState<Record<string, string>>({});
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [currentDateItem, setCurrentDateItem] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState(new Date());
   
   // Add item form state
   const [newItemName, setNewItemName] = useState('');
@@ -170,6 +175,33 @@ export const GroceryListScreen: React.FC<GroceryListScreenProps> = ({
     setShowExpiryModal(true);
   };
 
+  const handleDatePickerOpen = (itemId: string) => {
+    setCurrentDateItem(itemId);
+    setSelectedDate(new Date());
+    setShowDatePicker(true);
+  };
+
+  const handleDatePickerChange = (event: any, date?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowDatePicker(false);
+    }
+    
+    if (event.type === 'set' && date && currentDateItem) {
+      const formattedDate = date.toISOString().split('T')[0]; // YYYY-MM-DD format
+      setExpiryDates(prev => ({ ...prev, [currentDateItem]: formattedDate }));
+    }
+    
+    if (Platform.OS === 'ios') {
+      if (event.type === 'dismissed') {
+        setShowDatePicker(false);
+      }
+    }
+    
+    if (event.type === 'set' || event.type === 'dismissed') {
+      setCurrentDateItem(null);
+    }
+  };
+
   const handleTransferToInventory = async () => {
     const purchasedItems = activeList?.items.filter(item => item.isPurchased) || [];
     const missingExpiryDates = purchasedItems.filter(item => !expiryDates[item.id] || expiryDates[item.id].trim() === '');
@@ -250,7 +282,7 @@ export const GroceryListScreen: React.FC<GroceryListScreenProps> = ({
     const colors = {
       fruits: '#27ae60',
       vegetables: '#2ecc71',
-      dairy: '#3498db',
+      dairy: '#27ae60',
       meat: '#e74c3c',
       pantry: '#f39c12',
       beverages: '#9b59b6',
@@ -520,14 +552,17 @@ export const GroceryListScreen: React.FC<GroceryListScreenProps> = ({
                   <Text style={styles.inputLabel}>
                     {item.name} ({item.quantity} {item.unit})
                   </Text>
-                  <TextInput
-                    style={styles.textInput}
-                    value={expiryDates[item.id] || ''}
-                    onChangeText={(text) => setExpiryDates(prev => ({ ...prev, [item.id]: text }))}
-                    placeholder="YYYY-MM-DD (e.g., 2024-02-15)"
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                  />
+                  <TouchableOpacity
+                    style={styles.dateInputButton}
+                    onPress={() => handleDatePickerOpen(item.id)}
+                  >
+                    <Text style={[
+                      styles.dateInputText,
+                      expiryDates[item.id] ? styles.dateInputTextFilled : styles.dateInputTextPlaceholder
+                    ]}>
+                      {expiryDates[item.id] || 'Tap to select expiry date'}
+                    </Text>
+                  </TouchableOpacity>
                 </View>
               ))}
             </ScrollView>
@@ -569,7 +604,14 @@ export const GroceryListScreen: React.FC<GroceryListScreenProps> = ({
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={onBack}>
+        <TouchableOpacity 
+          style={styles.backButton} 
+          onPress={onBack}
+          accessible={true}
+          accessibilityRole="button"
+          accessibilityLabel="Go back to main menu"
+          accessibilityHint="Double tap to return to the previous screen"
+        >
           <Text style={styles.backButtonText}>← Back</Text>
         </TouchableOpacity>
         <Text style={styles.title}>Grocery List</Text>
@@ -657,6 +699,18 @@ export const GroceryListScreen: React.FC<GroceryListScreenProps> = ({
       {renderAddItemModal()}
       {renderSuggestionsModal()}
       {renderExpiryModal()}
+      
+      {/* Date Picker */}
+      {showDatePicker && (
+        <DateTimePicker
+          value={selectedDate}
+          mode="date"
+          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          onChange={handleDatePickerChange}
+          minimumDate={new Date()}
+          style={Platform.OS === 'ios' ? { width: 320, height: 200 } : undefined}
+        />
+      )}
     </SafeAreaView>
   );
 };
@@ -672,22 +726,35 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: 20,
     paddingTop: Platform.OS === 'ios' ? 60 : 20,
-    backgroundColor: 'white',
+    backgroundColor: '#f8f9fa',
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: '#e9ecef',
   },
   backButton: {
-    padding: 8,
+    padding: 18,
+    minWidth: 88,
+    minHeight: 52,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 26,
+    backgroundColor: 'white',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    borderWidth: 1,
+    borderColor: '#f0f8f0',
   },
   backButtonText: {
     fontSize: 16,
-    color: '#3498db',
-    fontWeight: '600',
+    color: '#27ae60',
+    fontWeight: '700',
   },
   title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#2c3e50',
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#27ae60',
   },
   headerSpacer: {
     width: 60,
@@ -771,8 +838,8 @@ const styles = StyleSheet.create({
   },
   itemCardSelected: {
     borderWidth: 2,
-    borderColor: '#3498db',
-    backgroundColor: '#f0f8ff',
+    borderColor: '#27ae60',
+    backgroundColor: '#f0f8f0',
   },
   actions: {
     flexDirection: 'row',
@@ -784,7 +851,7 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     flex: 1,
-    backgroundColor: '#3498db',
+    backgroundColor: '#27ae60',
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 8,
@@ -805,11 +872,38 @@ const styles = StyleSheet.create({
   },
   shoppingDoneButton: {
     backgroundColor: '#27ae60',
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginBottom: 12,
+    elevation: 3,
+    shadowColor: '#27ae60',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
   },
   shoppingDoneButtonText: {
     color: 'white',
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  dateInputButton: {
+    borderWidth: 1,
+    borderColor: '#bdc3c7',
+    borderRadius: 8,
+    padding: 12,
+    backgroundColor: '#f8f9fa',
+  },
+  dateInputText: {
+    fontSize: 16,
+  },
+  dateInputTextFilled: {
+    color: '#2c3e50',
+    fontWeight: '500',
+  },
+  dateInputTextPlaceholder: {
+    color: '#95a5a6',
   },
   itemsList: {
     padding: 20,
@@ -1021,7 +1115,7 @@ const styles = StyleSheet.create({
   },
   addButton: {
     flex: 1,
-    backgroundColor: '#3498db',
+    backgroundColor: '#27ae60',
     paddingVertical: 12,
     borderRadius: 8,
     alignItems: 'center',
@@ -1063,7 +1157,7 @@ const styles = StyleSheet.create({
   },
   addIcon: {
     fontSize: 20,
-    color: '#3498db',
+    color: '#27ae60',
     fontWeight: 'bold',
   },
 });

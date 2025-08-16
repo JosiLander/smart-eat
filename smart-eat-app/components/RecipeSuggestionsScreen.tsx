@@ -22,11 +22,13 @@ import { AccessibilityService } from '../services/AccessibilityService';
 interface RecipeSuggestionsScreenProps {
   onBack: () => void;
   onViewRecipe: (recipeId: string) => void;
+  onScanItems?: () => void;
 }
 
 export const RecipeSuggestionsScreen: React.FC<RecipeSuggestionsScreenProps> = ({
   onBack,
   onViewRecipe,
+  onScanItems,
 }) => {
   const [suggestions, setSuggestions] = useState<RecipeSuggestion[]>([]);
   const [loading, setLoading] = useState(true);
@@ -229,68 +231,58 @@ export const RecipeSuggestionsScreen: React.FC<RecipeSuggestionsScreenProps> = (
         </View>
       </TouchableOpacity>
 
-      {/* Progressive disclosure for recipe details */}
-      <ProgressiveDisclosure
-        title="Recipe Details"
-        accessibilityLabel="Recipe details and ingredients"
-        accessibilityHint="Tap to show or hide recipe details and ingredients"
-        onToggle={(expanded) => {
-          analyticsService.trackProgressiveDisclosure(expanded, 'recipe_details');
-          accessibilityService.announceProgressiveDisclosure(expanded, 'Recipe details');
-        }}
-      >
-        <View style={styles.recipeDetails}>
-          <View style={styles.detailRow}>
-            <View style={styles.detailItem}>
-              <Text style={styles.detailLabel}>Time</Text>
-              <Text style={styles.detailValue}>{formatTime(item.estimatedPrepTime)}</Text>
-            </View>
-            
-            <View style={styles.detailItem}>
-              <Text style={styles.detailLabel}>Difficulty</Text>
-              <Text style={[
-                styles.detailValue,
-                { color: getDifficultyColor(item.recipe.difficulty) }
-              ]}>
-                {item.recipe.difficulty.charAt(0).toUpperCase() + item.recipe.difficulty.slice(1)}
-              </Text>
-            </View>
-            
-            <View style={styles.detailItem}>
-              <Text style={styles.detailLabel}>Servings</Text>
-              <Text style={styles.detailValue}>{item.recipe.servings}</Text>
-            </View>
+      {/* Recipe details section */}
+      <View style={styles.recipeDetails}>
+        <View style={styles.detailRow}>
+          <View style={styles.detailItem}>
+            <Text style={styles.detailLabel}>Time</Text>
+            <Text style={styles.detailValue}>{formatTime(item.estimatedPrepTime)}</Text>
           </View>
-
-          <View style={styles.ingredientsSection}>
-            <Text style={styles.sectionTitle}>Ingredients</Text>
-            <View style={styles.ingredientsList}>
-              {item.availableIngredients.map((ingredient, index) => (
-                <View key={`available-${index}`} style={styles.ingredientItem}>
-                  <Text style={[styles.ingredientText, styles.availableIngredient]}>
-                    ✓ {ingredient.name} ({ingredient.amount} {ingredient.unit})
-                  </Text>
-                </View>
-              ))}
-              {item.missingIngredients.map((ingredient, index) => (
-                <View key={`missing-${index}`} style={styles.ingredientItem}>
-                  <Text style={[styles.ingredientText, styles.missingIngredient]}>
-                    ✗ {ingredient.name} ({ingredient.amount} {ingredient.unit})
-                  </Text>
-                </View>
-              ))}
-            </View>
+          
+          <View style={styles.detailItem}>
+            <Text style={styles.detailLabel}>Difficulty</Text>
+            <Text style={[
+              styles.detailValue,
+              { color: getDifficultyColor(item.recipe.difficulty) }
+            ]}>
+              {item.recipe.difficulty.charAt(0).toUpperCase() + item.recipe.difficulty.slice(1)}
+            </Text>
           </View>
+          
+          <View style={styles.detailItem}>
+            <Text style={styles.detailLabel}>Servings</Text>
+            <Text style={styles.detailValue}>{item.recipe.servings}</Text>
+          </View>
+        </View>
 
-          <View style={styles.tagsContainer}>
-            {item.recipe.tags.slice(0, 3).map((tag, index) => (
-              <View key={index} style={styles.tag}>
-                <Text style={styles.tagText}>{tag}</Text>
+        <View style={styles.ingredientsSection}>
+          <Text style={styles.sectionTitle}>Ingredients</Text>
+          <View style={styles.ingredientsList}>
+            {item.availableIngredients.map((ingredient, index) => (
+              <View key={`available-${index}`} style={styles.ingredientItem}>
+                <Text style={[styles.ingredientText, styles.availableIngredient]}>
+                  ✓ {ingredient.name} ({ingredient.amount} {ingredient.unit})
+                </Text>
+              </View>
+            ))}
+            {item.missingIngredients.map((ingredient, index) => (
+              <View key={`missing-${index}`} style={styles.ingredientItem}>
+                <Text style={[styles.ingredientText, styles.missingIngredient]}>
+                  ✗ {ingredient.name} ({ingredient.amount} {ingredient.unit})
+                </Text>
               </View>
             ))}
           </View>
         </View>
-      </ProgressiveDisclosure>
+
+        <View style={styles.tagsContainer}>
+          {item.recipe.tags.slice(0, 3).map((tag, index) => (
+            <View key={index} style={styles.tag}>
+              <Text style={styles.tagText}>{tag}</Text>
+            </View>
+          ))}
+        </View>
+      </View>
     </View>
   );
 
@@ -378,7 +370,7 @@ export const RecipeSuggestionsScreen: React.FC<RecipeSuggestionsScreenProps> = (
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#3498db" />
+        <ActivityIndicator size="large" color="#27ae60" />
         <Text style={styles.loadingText}>Finding perfect recipes for you...</Text>
       </View>
     );
@@ -387,24 +379,38 @@ export const RecipeSuggestionsScreen: React.FC<RecipeSuggestionsScreenProps> = (
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={onBack}>
+        <TouchableOpacity 
+          style={styles.backButton} 
+          onPress={onBack}
+          accessible={true}
+          accessibilityRole="button"
+          accessibilityLabel="Go back to main menu"
+          accessibilityHint="Double tap to return to the previous screen"
+        >
           <Text style={styles.backButtonText}>← Back</Text>
         </TouchableOpacity>
         <Text style={styles.title}>Recipe Suggestions</Text>
-        <Tooltip
-          content="Use filters to find recipes that match your preferences. You can filter by difficulty, cooking time, and even prioritize recipes that use expiring ingredients!"
-          position="bottom"
-          showArrow={true}
-          onShow={() => analyticsService.tooltipInteraction('filters_help', 'show')}
-          onHide={() => analyticsService.tooltipInteraction('filters_help', 'hide')}
-        >
-          <TouchableOpacity
-            style={styles.filterToggle}
-            onPress={() => setShowFilters(!showFilters)}
+        <View style={styles.headerActions}>
+          {onScanItems && (
+            <TouchableOpacity style={styles.scanButton} onPress={onScanItems}>
+              <Text style={styles.scanButtonText}>📷 Scan</Text>
+            </TouchableOpacity>
+          )}
+          <Tooltip
+            content="Use filters to find recipes that match your preferences. You can filter by difficulty, cooking time, and even prioritize recipes that use expiring ingredients!"
+            position="bottom"
+            showArrow={true}
+            onShow={() => analyticsService.tooltipInteraction('filters_help', 'show')}
+            onHide={() => analyticsService.tooltipInteraction('filters_help', 'hide')}
           >
-            <Text style={styles.filterToggleText}>Filters</Text>
-          </TouchableOpacity>
-        </Tooltip>
+            <TouchableOpacity
+              style={styles.filterToggle}
+              onPress={() => setShowFilters(!showFilters)}
+            >
+              <Text style={styles.filterToggleText}>Filters</Text>
+            </TouchableOpacity>
+          </Tooltip>
+        </View>
       </View>
 
       <View style={styles.searchSection}>
@@ -446,8 +452,11 @@ export const RecipeSuggestionsScreen: React.FC<RecipeSuggestionsScreenProps> = (
           showFilterGuidance={Object.keys(filters).length > 0}
           onAddItems={() => {
             analyticsService.trackEmptyStateAction('add_items', 'recipe_suggestions');
-            // Navigate to camera screen or inventory
-            Alert.alert('Add Items', 'Navigate to camera to scan new items');
+            if (onScanItems) {
+              onScanItems();
+            } else {
+              Alert.alert('Add Items', 'Navigate to camera to scan new items');
+            }
           }}
           onAdjustFilters={() => {
             analyticsService.trackEmptyStateAction('adjust_filters', 'recipe_suggestions');
@@ -479,29 +488,73 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 20,
-    backgroundColor: 'white',
+    backgroundColor: '#f8f9fa',
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: '#e9ecef',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  scanButton: {
+    backgroundColor: '#27ae60',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 18,
+    elevation: 2,
+    shadowColor: '#27ae60',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+  },
+  scanButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '700',
   },
   backButton: {
-    padding: 8,
+    padding: 18,
+    minWidth: 88,
+    minHeight: 52,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 26,
+    backgroundColor: 'white',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    borderWidth: 1,
+    borderColor: '#f0f8f0',
   },
   backButtonText: {
     fontSize: 16,
-    color: '#3498db',
-    fontWeight: '600',
+    color: '#27ae60',
+    fontWeight: '700',
   },
   title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#2c3e50',
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#27ae60',
   },
   filterToggle: {
-    padding: 8,
+    backgroundColor: 'white',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
   },
   filterToggleText: {
-    fontSize: 16,
-    color: '#3498db',
+    fontSize: 14,
+    color: '#2c3e50',
     fontWeight: '600',
   },
   searchSection: {
@@ -509,7 +562,7 @@ const styles = StyleSheet.create({
     padding: 20,
     backgroundColor: 'white',
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: '#e9ecef',
   },
   searchInput: {
     flex: 1,
@@ -521,11 +574,16 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   searchButton: {
-    backgroundColor: '#3498db',
+    backgroundColor: '#27ae60',
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 8,
     justifyContent: 'center',
+    elevation: 2,
+    shadowColor: '#27ae60',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
   },
   searchButtonText: {
     color: 'white',
@@ -544,15 +602,16 @@ const styles = StyleSheet.create({
   },
   filterButton: {
     borderWidth: 1,
-    borderColor: '#bdc3c7',
+    borderColor: '#e9ecef',
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 8,
     marginRight: 10,
+    backgroundColor: 'white',
   },
   filterButtonActive: {
-    backgroundColor: '#3498db',
-    borderColor: '#3498db',
+    backgroundColor: '#27ae60',
+    borderColor: '#27ae60',
   },
   filterButtonText: {
     fontSize: 14,
@@ -649,6 +708,11 @@ const styles = StyleSheet.create({
   },
   recipeDetails: {
     marginTop: 12,
+    padding: 16,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
   },
   detailRow: {
     flexDirection: 'row',

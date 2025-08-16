@@ -231,7 +231,7 @@ export const InventoryOverviewScreen: React.FC<InventoryOverviewScreenProps> = (
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#3498db" />
+          <ActivityIndicator size="large" color="#27ae60" />
           <Text style={styles.loadingText}>Loading inventory...</Text>
         </View>
       </SafeAreaView>
@@ -241,7 +241,14 @@ export const InventoryOverviewScreen: React.FC<InventoryOverviewScreenProps> = (
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={onBack}>
+        <TouchableOpacity 
+          style={styles.backButton} 
+          onPress={onBack}
+          accessible={true}
+          accessibilityRole="button"
+          accessibilityLabel="Go back to main menu"
+          accessibilityHint="Double tap to return to the previous screen"
+        >
           <Text style={styles.backButtonText}>← Back</Text>
         </TouchableOpacity>
         <Text style={styles.title}>Inventory Overview</Text>
@@ -279,12 +286,25 @@ const styles = StyleSheet.create({
     borderBottomColor: '#e0e0e0',
   },
   backButton: {
-    padding: 8,
+    padding: 18,
+    minWidth: 88,
+    minHeight: 52,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 26,
+    backgroundColor: 'white',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    borderWidth: 1,
+    borderColor: '#f0f8f0',
   },
   backButtonText: {
     fontSize: 16,
-    color: '#3498db',
-    fontWeight: '600',
+    color: '#27ae60',
+    fontWeight: '700',
   },
   title: {
     fontSize: 20,
@@ -371,7 +391,7 @@ const styles = StyleSheet.create({
   },
   backToCategoriesText: {
     fontSize: 16,
-    color: '#3498db',
+    color: '#27ae60',
     fontWeight: '600',
   },
   categoryListTitle: {

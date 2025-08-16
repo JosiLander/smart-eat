@@ -103,12 +103,27 @@ export const RecipeDetailScreen: React.FC<RecipeDetailScreenProps> = ({
       console.log('Active list:', activeList);
       
       if (!activeList) {
-        Alert.alert('Error', 'No active grocery list found. Please create a grocery list first.');
+        // Create a default list if none exists
+        const createResult = await GroceryListService.createList('Shopping List');
+        if (createResult.success) {
+          console.log('Created new grocery list:', createResult.listId);
+        } else {
+          Alert.alert('Error', 'Failed to create grocery list. Please try again.');
+          return;
+        }
+      }
+
+      // Get the active list again (either existing or newly created)
+      const finalActiveList = await GroceryListService.getActiveList();
+      if (!finalActiveList) {
+        Alert.alert('Error', 'No active grocery list found. Please try again.');
         return;
       }
 
+      console.log('Using grocery list:', finalActiveList.id);
+
       const result = await GroceryListService.addItemsFromRecipe(
-        activeList.id,
+        finalActiveList.id,
         missingIngredients,
         recipeId
       );
@@ -132,7 +147,7 @@ export const RecipeDetailScreen: React.FC<RecipeDetailScreenProps> = ({
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#3498db" />
+        <ActivityIndicator size="large" color="#27ae60" />
         <Text style={styles.loadingText}>Loading recipe...</Text>
       </View>
     );
@@ -319,28 +334,40 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 20,
-    backgroundColor: 'white',
+    paddingTop: Platform.OS === 'ios' ? 60 : 20,
+    backgroundColor: '#f8f9fa',
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: '#e9ecef',
   },
   backButton: {
-    padding: 12,
-    minWidth: 60,
-    minHeight: 44,
+    padding: 18,
+    minWidth: 88,
+    minHeight: 52,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 8,
-    backgroundColor: '#f8f9fa',
+    borderRadius: 26,
+    backgroundColor: 'white',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    borderWidth: 1,
+    borderColor: '#f0f8f0',
   },
   backButtonText: {
     fontSize: 16,
-    color: '#3498db',
-    fontWeight: '600',
+    color: '#27ae60',
+    fontWeight: '700',
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#2c3e50',
+    fontSize: 28,
+    fontWeight: '900',
+    color: '#27ae60',
+    letterSpacing: -0.5,
+    textShadowColor: 'rgba(39, 174, 96, 0.1)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   headerSpacer: {
     width: 60,
@@ -469,7 +496,7 @@ const styles = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: '#3498db',
+    backgroundColor: '#27ae60',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -493,7 +520,7 @@ const styles = StyleSheet.create({
   },
   expandIcon: {
     fontSize: 16,
-    color: '#3498db',
+    color: '#27ae60',
   },
   nutritionGrid: {
     flexDirection: 'row',
@@ -524,25 +551,40 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   primaryButton: {
-    backgroundColor: '#3498db',
-    paddingVertical: 16,
-    borderRadius: 8,
+    backgroundColor: '#27ae60',
+    paddingVertical: 18,
+    borderRadius: 16,
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 14,
+    elevation: 5,
+    shadowColor: '#27ae60',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    borderWidth: 2,
+    borderColor: '#2ecc71',
   },
   primaryButtonText: {
     color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: 0.3,
   },
   secondaryButton: {
-    backgroundColor: '#ecf0f1',
+    backgroundColor: 'white',
     paddingVertical: 16,
-    borderRadius: 8,
+    borderRadius: 12,
     alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#e9ecef',
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
   },
   secondaryButtonText: {
-    color: '#7f8c8d',
+    color: '#2c3e50',
     fontSize: 16,
     fontWeight: '600',
   },

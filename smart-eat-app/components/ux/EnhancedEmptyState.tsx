@@ -141,7 +141,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   actionButton: {
-    backgroundColor: '#3498db',
+    backgroundColor: '#27ae60',
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,

@@ -4,11 +4,11 @@
     "slug": "smart-eat-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/smart-eat-logo.png",
+    "icon": "./assets/Gemini_Generated_Image_2h56jp2h56jp2h56.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/smart-eat-logo.png",
+      "image": "./assets/Gemini_Generated_Image_2h56jp2h56jp2h56.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -22,7 +22,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/smart-eat-logo.png",
+        "foregroundImage": "./assets/Gemini_Generated_Image_2h56jp2h56jp2h56.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
@@ -34,7 +34,7 @@
       ]
     },
     "web": {
-      "favicon": "./assets/smart-eat-logo.png"
+      "favicon": "./assets/Gemini_Generated_Image_2h56jp2h56jp2h56.png"
     },
     "plugins": [
       [

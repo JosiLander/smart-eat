@@ -15,19 +15,21 @@ export const CameraScreen: React.FC<CameraScreenProps> = ({
   const [cameraType] = useState<CameraType>("back");
   const [cameraError, setCameraError] = useState<string>('');
   const [isCameraReady, setIsCameraReady] = useState(false);
+  const [isCapturing, setIsCapturing] = useState(false);
 
   const takePicture = async () => {
-    if (!cameraRef.current) {
-      Alert.alert('Error', 'Camera not ready');
+    if (!cameraRef.current || isCapturing) {
       return;
     }
 
     try {
+      setIsCapturing(true);
       console.log('Taking picture...');
+      
       const photo = await cameraRef.current.takePictureAsync({
         quality: 0.8,
         base64: false,
-        skipProcessing: false,
+        skipProcessing: true, // Skip processing for faster capture
       });
       
       console.log('Picture taken:', photo.uri);
@@ -35,6 +37,8 @@ export const CameraScreen: React.FC<CameraScreenProps> = ({
     } catch (error) {
       console.error('Camera capture error:', error);
       Alert.alert('Error', 'Failed to take picture. Please try again.');
+    } finally {
+      setIsCapturing(false);
     }
   };
 
@@ -92,17 +96,27 @@ export const CameraScreen: React.FC<CameraScreenProps> = ({
         
         <View style={styles.captureButtonContainer}>
           <TouchableOpacity
-            style={[styles.captureButton, !isCameraReady && styles.captureButtonDisabled]}
+            style={[
+              styles.captureButton, 
+              !isCameraReady && styles.captureButtonDisabled,
+              isCapturing && styles.captureButtonCapturing
+            ]}
             onPress={takePicture}
             testID="capture-photo"
-            disabled={!isCameraReady}
+            disabled={!isCameraReady || isCapturing}
             accessible={true}
             accessibilityRole="button"
-            accessibilityLabel="Take photo"
+            accessibilityLabel={isCapturing ? "Capturing photo..." : "Take photo"}
             accessibilityHint="Double tap to capture a photo"
           >
-            <View style={styles.captureButtonInner} />
+            <View style={[
+              styles.captureButtonInner,
+              isCapturing && styles.captureButtonInnerCapturing
+            ]} />
           </TouchableOpacity>
+          {isCapturing && (
+            <Text style={styles.capturingText}>Capturing...</Text>
+          )}
         </View>
         
         {!isCameraReady && (
@@ -138,24 +152,48 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   captureButton: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 88,
+    height: 88,
+    borderRadius: 44,
     backgroundColor: 'white',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 4,
-    borderColor: '#3498db',
+    borderWidth: 5,
+    borderColor: '#27ae60',
+    elevation: 8,
+    shadowColor: '#27ae60',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
   },
   captureButtonDisabled: {
     opacity: 0.5,
     borderColor: '#bdc3c7',
   },
+  captureButtonCapturing: {
+    backgroundColor: '#e74c3c',
+    borderColor: '#c0392b',
+  },
+  captureButtonInnerCapturing: {
+    backgroundColor: '#c0392b',
+  },
+  capturingText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 8,
+    textAlign: 'center',
+  },
   captureButtonInner: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#3498db',
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#27ae60',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
   },
   closeButton: {
     width: 50,
@@ -198,7 +236,7 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   button: {
-    backgroundColor: '#3498db',
+    backgroundColor: '#27ae60',
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 20,

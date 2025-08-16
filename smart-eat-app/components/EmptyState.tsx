@@ -60,7 +60,7 @@ const styles = StyleSheet.create({
   },
   actionText: {
     fontSize: 16,
-    color: '#3498db',
+    color: '#27ae60',
     fontWeight: '600',
     textDecorationLine: 'underline',
   },

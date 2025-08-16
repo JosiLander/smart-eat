@@ -19,7 +19,7 @@ export const LoadingIndicator: React.FC<LoadingIndicatorProps> = ({
   visible,
   message = 'Loading...',
   size = 'small',
-  color = '#3498db',
+  color = '#27ae60',
   style,
 }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
