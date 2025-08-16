@@ -23,6 +23,7 @@ import { PermissionService } from './services/PermissionService';
 import { ImageService } from './services/ImageService';
 import { InventoryService, InventoryItem } from './services/InventoryService';
 import { RecipeService } from './services/RecipeService';
+import { ScanningService } from './services/ScanningService';
 
 type AppState = 
   | 'loading' 
@@ -129,19 +130,37 @@ export default function App() {
   const handleUsePhoto = async () => {
     if (!capturedImage) return;
 
-    console.log('Using photo:', capturedImage);
-    const result = await ImageService.saveImage(capturedImage);
+    console.log('Processing photo for scanning:', capturedImage);
     
-    if (result.success) {
-      Alert.alert('Success', 'Photo saved successfully!', [
-        { text: 'OK', onPress: () => {
+    try {
+      // Process the photo through AI recognition and OCR
+      const scanResult = await ScanningService.scanImage(capturedImage);
+      
+      if (scanResult.success) {
+        console.log('Scan successful:', scanResult);
+        setScanResult(scanResult);
+        setAppState('scan-results');
+      } else {
+        console.log('Scan failed:', scanResult.error);
+        Alert.alert('Scan Failed', scanResult.error || 'Failed to recognize items in the photo. Please try again.', [
+          { text: 'Retake Photo', onPress: () => setAppState('camera') },
+          { text: 'Cancel', style: 'cancel', onPress: () => {
+            setCapturedImage(null);
+            setScanResult(null);
+            setAppState('main');
+          }}
+        ]);
+      }
+    } catch (error) {
+      console.error('Scan processing error:', error);
+      Alert.alert('Error', 'Failed to process the photo. Please try again.', [
+        { text: 'Retake Photo', onPress: () => setAppState('camera') },
+        { text: 'Cancel', style: 'cancel', onPress: () => {
           setCapturedImage(null);
           setScanResult(null);
           setAppState('main');
         }}
       ]);
-    } else {
-      Alert.alert('Error', `Failed to save photo: ${result.error}`);
     }
   };
 
