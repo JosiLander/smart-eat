@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View, TouchableOpacity, Alert, Platform } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Alert, Platform, Image } from 'react-native';
 import { CameraScreen } from './components/CameraScreen';
 import { PhotoPreview } from './components/PhotoPreview';
 import { ScanResultsScreen } from './components/ScanResultsScreen';
@@ -236,6 +236,11 @@ export default function App() {
   if (appState === 'loading') {
     return (
       <View style={styles.container}>
+        <Image 
+          source={require('./assets/smart-eat-logo.png')}
+          style={styles.logo}
+          resizeMode="contain"
+        />
         <Text style={styles.loadingText}>Initializing...</Text>
         {debugInfo ? <Text style={styles.debugText}>{debugInfo}</Text> : null}
       </View>
@@ -246,6 +251,11 @@ export default function App() {
   if (appState === 'permission-denied') {
     return (
       <View style={styles.container}>
+        <Image 
+          source={require('./assets/smart-eat-logo.png')}
+          style={styles.logo}
+          resizeMode="contain"
+        />
         <Text style={styles.errorText}>Camera and Media Library permissions are required</Text>
         <Text style={styles.debugText}>Platform: {Platform.OS}</Text>
         <Text style={styles.debugText}>Camera: {permissionStatus.camera ? 'Granted' : 'Denied'}</Text>
@@ -350,6 +360,11 @@ export default function App() {
   // Main screen
   return (
     <View style={styles.container}>
+      <Image 
+        source={require('./assets/smart-eat-logo.png')}
+        style={styles.logo}
+        resizeMode="contain"
+      />
       <Text style={styles.title}>Smart Eat</Text>
       <Text style={styles.subtitle}>Grocery Scanner</Text>
       <TouchableOpacity style={styles.scanButton} onPress={handleStartCamera}>
@@ -390,6 +405,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  logo: {
+    width: 120,
+    height: 120,
+    marginBottom: 20,
   },
   title: {
     fontSize: 32,

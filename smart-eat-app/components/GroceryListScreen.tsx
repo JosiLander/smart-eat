@@ -30,8 +30,9 @@ export const GroceryListScreen: React.FC<GroceryListScreenProps> = ({
   const [suggestions, setSuggestions] = useState<GroceryItem[]>([]);
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
-  const [bulkMode, setBulkMode] = useState(false);
+
+  const [showExpiryModal, setShowExpiryModal] = useState(false);
+  const [expiryDates, setExpiryDates] = useState<Record<string, string>>({});
   
   // Add item form state
   const [newItemName, setNewItemName] = useState('');
@@ -152,6 +153,74 @@ export const GroceryListScreen: React.FC<GroceryListScreenProps> = ({
     );
   };
 
+  const handleShoppingComplete = () => {
+    const purchasedItems = activeList?.items.filter(item => item.isPurchased) || [];
+    
+    if (purchasedItems.length === 0) {
+      Alert.alert('No Items Purchased', 'Please mark some items as purchased before completing shopping.');
+      return;
+    }
+
+    // Initialize expiry dates for purchased items
+    const initialExpiryDates: Record<string, string> = {};
+    purchasedItems.forEach(item => {
+      initialExpiryDates[item.id] = '';
+    });
+    setExpiryDates(initialExpiryDates);
+    setShowExpiryModal(true);
+  };
+
+  const handleTransferToInventory = async () => {
+    const purchasedItems = activeList?.items.filter(item => item.isPurchased) || [];
+    const missingExpiryDates = purchasedItems.filter(item => !expiryDates[item.id] || expiryDates[item.id].trim() === '');
+    
+    if (missingExpiryDates.length > 0) {
+      Alert.alert(
+        'Missing Expiry Dates',
+        `Please add expiry dates for: ${missingExpiryDates.map(item => item.name).join(', ')}`
+      );
+      return;
+    }
+
+    try {
+      // Transfer items to inventory with expiry dates
+      for (const item of purchasedItems) {
+        const expiryDate = new Date(expiryDates[item.id]);
+        const daysUntilExpiry = Math.ceil((expiryDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+        
+        await InventoryService.addItem({
+          name: item.name,
+          quantity: item.quantity,
+          unit: item.unit,
+          category: item.category,
+          expiryDate: expiryDate.toISOString(),
+          daysUntilExpiry,
+          isExpired: daysUntilExpiry < 0,
+          addedAt: new Date().toISOString(),
+          notes: item.notes,
+        });
+      }
+
+      // Clear purchased items from grocery list
+      if (activeList) {
+        await GroceryListService.clearPurchasedItems(activeList.id);
+      }
+
+      setShowExpiryModal(false);
+      setExpiryDates({});
+      loadActiveList();
+      loadInventory();
+
+      Alert.alert(
+        'Shopping Complete!',
+        `${purchasedItems.length} items have been transferred to your inventory.`
+      );
+    } catch (error) {
+      console.error('Failed to transfer items to inventory:', error);
+      Alert.alert('Error', 'Failed to transfer items to inventory. Please try again.');
+    }
+  };
+
   const handleAddSuggestion = async (suggestion: GroceryItem) => {
     if (!activeList) return;
 
@@ -210,80 +279,27 @@ export const GroceryListScreen: React.FC<GroceryListScreenProps> = ({
     );
   };
 
-  const handleItemSelect = (itemId: string) => {
-    if (!bulkMode) return;
-    
-    const newSelected = new Set(selectedItems);
-    if (newSelected.has(itemId)) {
-      newSelected.delete(itemId);
-    } else {
-      newSelected.add(itemId);
-    }
-    setSelectedItems(newSelected);
-  };
 
-  const handleBulkPurchase = async () => {
-    if (!activeList || selectedItems.size === 0) return;
-    
-    for (const itemId of selectedItems) {
-      await GroceryListService.toggleItemPurchased(activeList.id, itemId);
-    }
-    
-    setSelectedItems(new Set());
-    setBulkMode(false);
-    loadActiveList();
-  };
-
-  const handleBulkDelete = async () => {
-    if (!activeList || selectedItems.size === 0) return;
-    
-    Alert.alert(
-      'Delete Selected Items',
-      `Are you sure you want to delete ${selectedItems.size} items?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            for (const itemId of selectedItems) {
-              await GroceryListService.removeItem(activeList.id, itemId);
-            }
-            setSelectedItems(new Set());
-            setBulkMode(false);
-            loadActiveList();
-          },
-        },
-      ]
-    );
-  };
 
   const renderGroceryItem = ({ item }: { item: GroceryItem }) => {
     const inventoryItem = checkInventoryForItem(item.name);
-    const isSelected = selectedItems.has(item.id);
     
     return (
       <View style={[
         styles.itemCard, 
-        item.isPurchased && styles.itemCardPurchased,
-        bulkMode && isSelected && styles.itemCardSelected
+        item.isPurchased && styles.itemCardPurchased
       ]}>
         <View style={styles.itemHeader}>
-          {bulkMode ? (
-            <TouchableOpacity
-              style={[styles.checkbox, isSelected && styles.checkboxChecked]}
-              onPress={() => handleItemSelect(item.id)}
-            >
-              {isSelected && <Text style={styles.checkmark}>✓</Text>}
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              style={[styles.checkbox, item.isPurchased && styles.checkboxChecked]}
-              onPress={() => handleTogglePurchased(item.id)}
-            >
-              {item.isPurchased && <Text style={styles.checkmark}>✓</Text>}
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity
+            style={[styles.checkbox, item.isPurchased && styles.checkboxChecked]}
+            onPress={() => handleTogglePurchased(item.id)}
+            accessible={true}
+            accessibilityRole="button"
+            accessibilityLabel={`Mark ${item.name} as ${item.isPurchased ? 'not purchased' : 'purchased'}`}
+            accessibilityHint="Double tap to toggle purchase status"
+          >
+            {item.isPurchased && <Text style={styles.checkmark}>✓</Text>}
+          </TouchableOpacity>
           
           <View style={styles.itemInfo}>
             <Text style={[styles.itemName, item.isPurchased && styles.itemNamePurchased]}>
@@ -475,6 +491,68 @@ export const GroceryListScreen: React.FC<GroceryListScreenProps> = ({
     </Modal>
   );
 
+  const renderExpiryModal = () => {
+    const purchasedItems = activeList?.items.filter(item => item.isPurchased) || [];
+    
+    return (
+      <Modal
+        visible={showExpiryModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowExpiryModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Add Expiry Dates</Text>
+              <TouchableOpacity onPress={() => setShowExpiryModal(false)}>
+                <Text style={styles.closeButton}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalBody}>
+              <Text style={styles.suggestionsSubtitle}>
+                Please add expiry dates for your purchased items before transferring to inventory
+              </Text>
+              
+              {purchasedItems.map((item) => (
+                <View key={item.id} style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>
+                    {item.name} ({item.quantity} {item.unit})
+                  </Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={expiryDates[item.id] || ''}
+                    onChangeText={(text) => setExpiryDates(prev => ({ ...prev, [item.id]: text }))}
+                    placeholder="YYYY-MM-DD (e.g., 2024-02-15)"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                </View>
+              ))}
+            </ScrollView>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => setShowExpiryModal(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={styles.addButton}
+                onPress={handleTransferToInventory}
+              >
+                <Text style={styles.addButtonText}>Transfer to Inventory</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
@@ -523,25 +601,24 @@ export const GroceryListScreen: React.FC<GroceryListScreenProps> = ({
         </TouchableOpacity>
         
         {purchasedItems.length > 0 && (
-          <TouchableOpacity
-            style={[styles.actionButton, styles.clearButton]}
-            onPress={handleClearPurchased}
-          >
-            <Text style={styles.clearButtonText}>🗑️ Clear Purchased</Text>
-          </TouchableOpacity>
+          <>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.clearButton]}
+              onPress={handleClearPurchased}
+            >
+              <Text style={styles.clearButtonText}>🗑️ Clear Purchased</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={[styles.actionButton, styles.shoppingDoneButton]}
+              onPress={handleShoppingComplete}
+            >
+              <Text style={styles.shoppingDoneButtonText}>✅ Shopping Done</Text>
+            </TouchableOpacity>
+          </>
         )}
         
-        <TouchableOpacity
-          style={[styles.actionButton, bulkMode && styles.bulkModeActive]}
-          onPress={() => {
-            setBulkMode(!bulkMode);
-            setSelectedItems(new Set());
-          }}
-        >
-          <Text style={styles.actionButtonText}>
-            {bulkMode ? '✕ Cancel' : '☑️ Select'}
-          </Text>
-        </TouchableOpacity>
+
       </View>
 
       {/* Search Bar */}
@@ -557,28 +634,7 @@ export const GroceryListScreen: React.FC<GroceryListScreenProps> = ({
         </View>
       )}
 
-      {/* Bulk Actions */}
-      {bulkMode && selectedItems.size > 0 && (
-        <View style={styles.bulkActionsContainer}>
-          <Text style={styles.bulkActionsText}>
-            {selectedItems.size} item{selectedItems.size !== 1 ? 's' : ''} selected
-          </Text>
-          <View style={styles.bulkActionsButtons}>
-            <TouchableOpacity
-              style={[styles.bulkActionButton, styles.bulkPurchaseButton]}
-              onPress={handleBulkPurchase}
-            >
-              <Text style={styles.bulkActionButtonText}>✓ Mark Purchased</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.bulkActionButton, styles.bulkDeleteButton]}
-              onPress={handleBulkDelete}
-            >
-              <Text style={styles.bulkActionButtonText}>🗑️ Delete</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
+
 
       {!activeList || activeList.items.length === 0 ? (
         <EmptyState
@@ -600,6 +656,7 @@ export const GroceryListScreen: React.FC<GroceryListScreenProps> = ({
 
       {renderAddItemModal()}
       {renderSuggestionsModal()}
+      {renderExpiryModal()}
     </SafeAreaView>
   );
 };
@@ -742,6 +799,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#e74c3c',
   },
   clearButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  shoppingDoneButton: {
+    backgroundColor: '#27ae60',
+  },
+  shoppingDoneButtonText: {
     color: 'white',
     fontSize: 14,
     fontWeight: '600',

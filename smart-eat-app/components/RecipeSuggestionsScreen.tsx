@@ -15,6 +15,9 @@ import {
 import { RecipeService, RecipeSuggestion, RecipeSearchFilters } from '../services/RecipeService';
 import { InventoryService, InventoryItem } from '../services/InventoryService';
 import { ProgressiveDisclosure, LoadingIndicator, EnhancedEmptyState, Tooltip } from './ux';
+import { FeatureFlagService } from '../services/FeatureFlagService';
+import { AnalyticsService } from '../services/AnalyticsService';
+import { AccessibilityService } from '../services/AccessibilityService';
 
 interface RecipeSuggestionsScreenProps {
   onBack: () => void;
@@ -33,9 +36,27 @@ export const RecipeSuggestionsScreen: React.FC<RecipeSuggestionsScreenProps> = (
   const [showFilters, setShowFilters] = useState(false);
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [isFirstTimeUser, setIsFirstTimeUser] = useState(true);
+  
+  // Feature flags and analytics
+  const featureFlagService = FeatureFlagService.getInstance();
+  const analyticsService = AnalyticsService.getInstance();
+  const accessibilityService = AccessibilityService.getInstance();
+  const [abTestVariant, setAbTestVariant] = useState<any>(null);
 
   useEffect(() => {
     loadRecipeSuggestions();
+    
+    // Initialize feature flags and A/B testing
+    const variant = featureFlagService.getABTestVariant('expiration_ui_variant');
+    setAbTestVariant(variant);
+    
+    // Track feature usage
+    analyticsService.trackFeatureUsage('recipe_suggestions_screen_opened');
+    
+    // Track A/B test variant assignment
+    if (variant) {
+      analyticsService.trackABTestVariant('expiration_ui_variant', variant.name);
+    }
   }, [filters]);
 
   const loadRecipeSuggestions = async () => {
@@ -59,10 +80,36 @@ export const RecipeSuggestionsScreen: React.FC<RecipeSuggestionsScreenProps> = (
       setFilterLoading(true);
       setFilters(newFilters);
       
+      // Track filter changes
+      Object.entries(newFilters).forEach(([key, value]) => {
+        if (value !== undefined) {
+          analyticsService.trackRecipeFilter(key, value);
+        }
+      });
+      
+      // Track expiration prioritization specifically
+      if (newFilters.prioritizeExpiring !== filters.prioritizeExpiring) {
+        analyticsService.trackExpirationPrioritization(
+          !!newFilters.prioritizeExpiring,
+          newFilters.prioritizeExpiring ? 1 : 0
+        );
+        
+        // Announce to screen readers
+        if (newFilters.prioritizeExpiring) {
+          accessibilityService.announceForAccessibility('Expiration prioritization enabled. Recipes with expiring ingredients will be shown first.');
+        } else {
+          accessibilityService.announceForAccessibility('Expiration prioritization disabled.');
+        }
+      }
+      
       const recipeSuggestions = await RecipeService.getRecipeSuggestions(inventoryItems, newFilters);
       setSuggestions(recipeSuggestions);
+      
+      // Announce results to screen readers
+      accessibilityService.announceRecipeFound(recipeSuggestions.length);
     } catch (error) {
       console.error('Failed to apply filters:', error);
+      analyticsService.trackError('filter_application_failed', error.message);
       Alert.alert('Error', 'Failed to apply filters. Please try again.');
     } finally {
       setFilterLoading(false);
@@ -136,7 +183,11 @@ export const RecipeSuggestionsScreen: React.FC<RecipeSuggestionsScreenProps> = (
     <View style={styles.recipeCard}>
       <TouchableOpacity
         style={styles.recipeHeader}
-        onPress={() => onViewRecipe(item.recipe.id)}
+        onPress={() => {
+          analyticsService.trackRecipeView(item.recipe.id, item.recipe.name, 'suggestions_list');
+          onViewRecipe(item.recipe.id);
+        }}
+        {...accessibilityService.getRecipeCardAccessibilityProps(item.recipe, item)}
       >
         <View style={styles.recipeTitleSection}>
           <Text style={styles.recipeName}>{item.recipe.name}</Text>
@@ -183,6 +234,10 @@ export const RecipeSuggestionsScreen: React.FC<RecipeSuggestionsScreenProps> = (
         title="Recipe Details"
         accessibilityLabel="Recipe details and ingredients"
         accessibilityHint="Tap to show or hide recipe details and ingredients"
+        onToggle={(expanded) => {
+          analyticsService.trackProgressiveDisclosure(expanded, 'recipe_details');
+          accessibilityService.announceProgressiveDisclosure(expanded, 'Recipe details');
+        }}
       >
         <View style={styles.recipeDetails}>
           <View style={styles.detailRow}>
@@ -245,6 +300,7 @@ export const RecipeSuggestionsScreen: React.FC<RecipeSuggestionsScreenProps> = (
         <TouchableOpacity
           style={[styles.filterButton, filters.difficulty === 'easy' && styles.filterButtonActive]}
           onPress={() => handleFilterChange({ ...filters, difficulty: filters.difficulty === 'easy' ? undefined : 'easy' })}
+          {...accessibilityService.getFilterButtonAccessibilityProps('difficulty', filters.difficulty === 'easy', 'easy')}
         >
           <Text style={[styles.filterButtonText, filters.difficulty === 'easy' && styles.filterButtonTextActive]}>
             Easy
@@ -254,6 +310,7 @@ export const RecipeSuggestionsScreen: React.FC<RecipeSuggestionsScreenProps> = (
         <TouchableOpacity
           style={[styles.filterButton, filters.difficulty === 'medium' && styles.filterButtonActive]}
           onPress={() => handleFilterChange({ ...filters, difficulty: filters.difficulty === 'medium' ? undefined : 'medium' })}
+          {...accessibilityService.getFilterButtonAccessibilityProps('difficulty', filters.difficulty === 'medium', 'medium')}
         >
           <Text style={[styles.filterButtonText, filters.difficulty === 'medium' && styles.filterButtonTextActive]}>
             Medium
@@ -263,6 +320,7 @@ export const RecipeSuggestionsScreen: React.FC<RecipeSuggestionsScreenProps> = (
         <TouchableOpacity
           style={[styles.filterButton, filters.difficulty === 'hard' && styles.filterButtonActive]}
           onPress={() => handleFilterChange({ ...filters, difficulty: filters.difficulty === 'hard' ? undefined : 'hard' })}
+          {...accessibilityService.getFilterButtonAccessibilityProps('difficulty', filters.difficulty === 'hard', 'hard')}
         >
           <Text style={[styles.filterButtonText, filters.difficulty === 'hard' && styles.filterButtonTextActive]}>
             Hard
@@ -294,6 +352,8 @@ export const RecipeSuggestionsScreen: React.FC<RecipeSuggestionsScreenProps> = (
         <Tooltip
           content="Prioritize recipes that use ingredients expiring soon. This helps reduce food waste by suggesting recipes that use your most urgent items first."
           position="bottom"
+          onShow={() => analyticsService.tooltipInteraction('expiration_prioritization', 'show')}
+          onHide={() => analyticsService.tooltipInteraction('expiration_prioritization', 'hide')}
         >
           <TouchableOpacity
             style={[styles.filterButton, filters.prioritizeExpiring && styles.filterButtonActive]}
@@ -335,6 +395,8 @@ export const RecipeSuggestionsScreen: React.FC<RecipeSuggestionsScreenProps> = (
           content="Use filters to find recipes that match your preferences. You can filter by difficulty, cooking time, and even prioritize recipes that use expiring ingredients!"
           position="bottom"
           showArrow={true}
+          onShow={() => analyticsService.tooltipInteraction('filters_help', 'show')}
+          onHide={() => analyticsService.tooltipInteraction('filters_help', 'hide')}
         >
           <TouchableOpacity
             style={styles.filterToggle}
@@ -375,14 +437,22 @@ export const RecipeSuggestionsScreen: React.FC<RecipeSuggestionsScreenProps> = (
               ? "No recipes found that use your expiring ingredients. Try adjusting your filters or adding more items to your inventory."
               : "No recipes match your current filters. Try adjusting your search criteria or adding more items to your inventory."
           }
+          onAction={() => {
+            accessibilityService.announceLoadingState('Refreshing recipe suggestions');
+            loadRecipeSuggestions();
+          }}
           icon="🍽️"
           showAddItemsSuggestion={inventoryItems.length < 5}
           showFilterGuidance={Object.keys(filters).length > 0}
           onAddItems={() => {
+            analyticsService.trackEmptyStateAction('add_items', 'recipe_suggestions');
             // Navigate to camera screen or inventory
             Alert.alert('Add Items', 'Navigate to camera to scan new items');
           }}
-          onAdjustFilters={() => setShowFilters(true)}
+          onAdjustFilters={() => {
+            analyticsService.trackEmptyStateAction('adjust_filters', 'recipe_suggestions');
+            setShowFilters(true);
+          }}
           actionText="Refresh Suggestions"
           onAction={loadRecipeSuggestions}
         />

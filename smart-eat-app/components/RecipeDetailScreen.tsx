@@ -88,13 +88,20 @@ export const RecipeDetailScreen: React.FC<RecipeDetailScreenProps> = ({
 
   const handleAddToGroceryList = async () => {
     const missingIngredients = getMissingIngredients();
+    console.log('Missing ingredients:', missingIngredients);
+    
     if (missingIngredients.length === 0) {
       Alert.alert('Great!', 'You have all the ingredients needed for this recipe!');
       return;
     }
     
     try {
+      // Ensure GroceryListService is initialized
+      await GroceryListService.initialize();
+      
       const activeList = await GroceryListService.getActiveList();
+      console.log('Active list:', activeList);
+      
       if (!activeList) {
         Alert.alert('Error', 'No active grocery list found. Please create a grocery list first.');
         return;
@@ -105,6 +112,8 @@ export const RecipeDetailScreen: React.FC<RecipeDetailScreenProps> = ({
         missingIngredients,
         recipeId
       );
+
+      console.log('Add items result:', result);
 
       if (result.success) {
         Alert.alert(
@@ -144,7 +153,14 @@ export const RecipeDetailScreen: React.FC<RecipeDetailScreenProps> = ({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={onBack}>
+        <TouchableOpacity 
+          style={styles.backButton} 
+          onPress={onBack}
+          accessible={true}
+          accessibilityRole="button"
+          accessibilityLabel="Go back to recipe suggestions"
+          accessibilityHint="Double tap to return to the previous screen"
+        >
           <Text style={styles.backButtonText}>← Back</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Recipe</Text>
@@ -308,7 +324,13 @@ const styles = StyleSheet.create({
     borderBottomColor: '#e0e0e0',
   },
   backButton: {
-    padding: 8,
+    padding: 12,
+    minWidth: 60,
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 8,
+    backgroundColor: '#f8f9fa',
   },
   backButtonText: {
     fontSize: 16,

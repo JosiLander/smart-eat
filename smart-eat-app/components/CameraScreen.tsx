@@ -88,12 +88,18 @@ export const CameraScreen: React.FC<CameraScreenProps> = ({
           >
             <View style={styles.closeButtonInner} />
           </TouchableOpacity>
-          
+        </View>
+        
+        <View style={styles.captureButtonContainer}>
           <TouchableOpacity
             style={[styles.captureButton, !isCameraReady && styles.captureButtonDisabled]}
             onPress={takePicture}
             testID="capture-photo"
             disabled={!isCameraReady}
+            accessible={true}
+            accessibilityRole="button"
+            accessibilityLabel="Take photo"
+            accessibilityHint="Double tap to capture a photo"
           >
             <View style={styles.captureButtonInner} />
           </TouchableOpacity>
@@ -118,13 +124,18 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   cameraControls: {
-    flex: 1,
+    position: 'absolute',
+    top: 50,
+    right: 30,
     backgroundColor: 'transparent',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-    paddingHorizontal: 30,
-    paddingBottom: 50,
+  },
+  captureButtonContainer: {
+    position: 'absolute',
+    bottom: 50,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    backgroundColor: 'transparent',
   },
   captureButton: {
     width: 80,
