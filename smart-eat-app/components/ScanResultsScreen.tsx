@@ -13,6 +13,8 @@ import {
 import { RecognizedProduct } from '../services/AIService';
 import { ScanResult } from '../services/ScanningService';
 import { DatePicker } from './DatePicker';
+import { EmptyState } from './EmptyState';
+import { getExpiryColorInfo, formatDate } from '../utils/dateUtils';
 
 interface ScanResultsScreenProps {
   scanResult: ScanResult;
@@ -127,13 +129,7 @@ export const ScanResultsScreen: React.FC<ScanResultsScreenProps> = ({
     return 'Low';
   };
 
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
+
 
   return (
     <View style={styles.container}>
@@ -214,9 +210,21 @@ export const ScanResultsScreen: React.FC<ScanResultsScreenProps> = ({
                       <View style={styles.dateSection}>
                         {product.expirationDate ? (
                           <View style={styles.dateDisplay}>
-                            <Text style={styles.dateText}>
-                              {formatDate(product.expirationDate)}
-                            </Text>
+                            <View style={styles.dateInfo}>
+                              <Text style={styles.dateText}>
+                                {formatDate(product.expirationDate)}
+                              </Text>
+                              {(() => {
+                                const colorInfo = getExpiryColorInfo(product.expirationDate);
+                                return (
+                                  <View style={[styles.urgencyBadge, { backgroundColor: colorInfo.backgroundColor }]}>
+                                    <Text style={[styles.urgencyText, { color: colorInfo.color }]}>
+                                      {colorInfo.text}
+                                    </Text>
+                                  </View>
+                                );
+                              })()}
+                            </View>
                             <TouchableOpacity
                               style={styles.removeDateButton}
                               onPress={() => handleDateToggle(index)}
@@ -242,12 +250,13 @@ export const ScanResultsScreen: React.FC<ScanResultsScreenProps> = ({
               </View>
             ))
           ) : (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyText}>No products recognized</Text>
-              <Text style={styles.emptySubtext}>
-                Try taking a clearer photo or adjusting the lighting
-              </Text>
-            </View>
+            <EmptyState
+              title="No Products Recognized"
+              subtitle="Try taking a clearer photo or adjusting the lighting. Make sure the product labels are visible and well-lit."
+              icon="📷"
+              actionText="Retake Photo"
+              onAction={onRetake}
+            />
           )}
         </View>
 
@@ -441,20 +450,7 @@ const styles = StyleSheet.create({
     color: '#7f8c8d',
     textTransform: 'capitalize',
   },
-  emptyState: {
-    alignItems: 'center',
-    padding: 40,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: '#7f8c8d',
-    marginBottom: 8,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: '#95a5a6',
-    textAlign: 'center',
-  },
+
 
   dateSection: {
     flex: 1,
@@ -465,6 +461,23 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8f9fa',
     borderRadius: 6,
     padding: 8,
+  },
+  dateInfo: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  urgencyBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    minWidth: 80,
+    alignItems: 'center',
+  },
+  urgencyText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
   dateSelector: {
     flexDirection: 'row',
