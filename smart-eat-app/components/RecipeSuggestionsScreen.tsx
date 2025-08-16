@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { RecipeService, RecipeSuggestion, RecipeSearchFilters } from '../services/RecipeService';
 import { InventoryService, InventoryItem } from '../services/InventoryService';
+import { ProgressiveDisclosure, LoadingIndicator, EnhancedEmptyState, Tooltip } from './ux';
 
 interface RecipeSuggestionsScreenProps {
   onBack: () => void;
@@ -26,10 +27,12 @@ export const RecipeSuggestionsScreen: React.FC<RecipeSuggestionsScreenProps> = (
 }) => {
   const [suggestions, setSuggestions] = useState<RecipeSuggestion[]>([]);
   const [loading, setLoading] = useState(true);
+  const [filterLoading, setFilterLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState<RecipeSearchFilters>({});
   const [showFilters, setShowFilters] = useState(false);
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
+  const [isFirstTimeUser, setIsFirstTimeUser] = useState(true);
 
   useEffect(() => {
     loadRecipeSuggestions();
@@ -48,6 +51,21 @@ export const RecipeSuggestionsScreen: React.FC<RecipeSuggestionsScreenProps> = (
       Alert.alert('Error', 'Failed to load recipe suggestions. Please try again.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleFilterChange = async (newFilters: RecipeSearchFilters) => {
+    try {
+      setFilterLoading(true);
+      setFilters(newFilters);
+      
+      const recipeSuggestions = await RecipeService.getRecipeSuggestions(inventoryItems, newFilters);
+      setSuggestions(recipeSuggestions);
+    } catch (error) {
+      console.error('Failed to apply filters:', error);
+      Alert.alert('Error', 'Failed to apply filters. Please try again.');
+    } finally {
+      setFilterLoading(false);
     }
   };
 
@@ -93,6 +111,20 @@ export const RecipeSuggestionsScreen: React.FC<RecipeSuggestionsScreenProps> = (
     }
   };
 
+  const getExpirationPriorityColor = (priority: number) => {
+    if (priority >= 0.7) return '#e74c3c'; // Red for high priority
+    if (priority >= 0.4) return '#f39c12'; // Orange for medium priority
+    if (priority >= 0.1) return '#f1c40f'; // Yellow for low priority
+    return '#95a5a6'; // Gray for no priority
+  };
+
+  const getExpirationPriorityText = (priority: number) => {
+    if (priority >= 0.7) return 'Use Today!';
+    if (priority >= 0.4) return 'Expires Soon';
+    if (priority >= 0.1) return 'Use Soon';
+    return '';
+  };
+
   const formatTime = (minutes: number) => {
     if (minutes < 60) return `${minutes}m`;
     const hours = Math.floor(minutes / 60);
@@ -101,16 +133,34 @@ export const RecipeSuggestionsScreen: React.FC<RecipeSuggestionsScreenProps> = (
   };
 
   const renderRecipeCard = ({ item }: { item: RecipeSuggestion }) => (
-    <TouchableOpacity
-      style={styles.recipeCard}
-      onPress={() => onViewRecipe(item.recipe.id)}
-    >
-      <View style={styles.recipeHeader}>
+    <View style={styles.recipeCard}>
+      <TouchableOpacity
+        style={styles.recipeHeader}
+        onPress={() => onViewRecipe(item.recipe.id)}
+      >
         <View style={styles.recipeTitleSection}>
           <Text style={styles.recipeName}>{item.recipe.name}</Text>
           <Text style={styles.recipeDescription} numberOfLines={2}>
             {item.recipe.description}
           </Text>
+          {/* Expiration priority indicator */}
+          {item.expirationPriority > 0 && (
+            <View style={styles.expirationPriorityContainer}>
+              <View style={[
+                styles.expirationPriorityBadge,
+                { backgroundColor: getExpirationPriorityColor(item.expirationPriority) }
+              ]}>
+                <Text style={styles.expirationPriorityText}>
+                  {getExpirationPriorityText(item.expirationPriority)}
+                </Text>
+              </View>
+              {item.expiringIngredientsCount > 0 && (
+                <Text style={styles.expiringCountText}>
+                  {item.expiringIngredientsCount} expiring ingredient{item.expiringIngredientsCount > 1 ? 's' : ''}
+                </Text>
+              )}
+            </View>
+          )}
         </View>
         
         <View style={styles.matchScoreContainer}>
@@ -126,60 +176,67 @@ export const RecipeSuggestionsScreen: React.FC<RecipeSuggestionsScreenProps> = (
             {getMatchScoreText(item.matchScore)}
           </Text>
         </View>
-      </View>
+      </TouchableOpacity>
 
-      <View style={styles.recipeDetails}>
-        <View style={styles.detailRow}>
-          <View style={styles.detailItem}>
-            <Text style={styles.detailLabel}>Time</Text>
-            <Text style={styles.detailValue}>{formatTime(item.estimatedPrepTime)}</Text>
-          </View>
-          
-          <View style={styles.detailItem}>
-            <Text style={styles.detailLabel}>Difficulty</Text>
-            <Text style={[
-              styles.detailValue,
-              { color: getDifficultyColor(item.recipe.difficulty) }
-            ]}>
-              {item.recipe.difficulty.charAt(0).toUpperCase() + item.recipe.difficulty.slice(1)}
-            </Text>
-          </View>
-          
-          <View style={styles.detailItem}>
-            <Text style={styles.detailLabel}>Servings</Text>
-            <Text style={styles.detailValue}>{item.recipe.servings}</Text>
-          </View>
-        </View>
-
-        <View style={styles.ingredientsSection}>
-          <Text style={styles.sectionTitle}>Ingredients</Text>
-          <View style={styles.ingredientsList}>
-            {item.availableIngredients.map((ingredient, index) => (
-              <View key={`available-${index}`} style={styles.ingredientItem}>
-                <Text style={[styles.ingredientText, styles.availableIngredient]}>
-                  ✓ {ingredient.name} ({ingredient.amount} {ingredient.unit})
-                </Text>
-              </View>
-            ))}
-            {item.missingIngredients.map((ingredient, index) => (
-              <View key={`missing-${index}`} style={styles.ingredientItem}>
-                <Text style={[styles.ingredientText, styles.missingIngredient]}>
-                  ✗ {ingredient.name} ({ingredient.amount} {ingredient.unit})
-                </Text>
-              </View>
-            ))}
-          </View>
-        </View>
-
-        <View style={styles.tagsContainer}>
-          {item.recipe.tags.slice(0, 3).map((tag, index) => (
-            <View key={index} style={styles.tag}>
-              <Text style={styles.tagText}>{tag}</Text>
+      {/* Progressive disclosure for recipe details */}
+      <ProgressiveDisclosure
+        title="Recipe Details"
+        accessibilityLabel="Recipe details and ingredients"
+        accessibilityHint="Tap to show or hide recipe details and ingredients"
+      >
+        <View style={styles.recipeDetails}>
+          <View style={styles.detailRow}>
+            <View style={styles.detailItem}>
+              <Text style={styles.detailLabel}>Time</Text>
+              <Text style={styles.detailValue}>{formatTime(item.estimatedPrepTime)}</Text>
             </View>
-          ))}
+            
+            <View style={styles.detailItem}>
+              <Text style={styles.detailLabel}>Difficulty</Text>
+              <Text style={[
+                styles.detailValue,
+                { color: getDifficultyColor(item.recipe.difficulty) }
+              ]}>
+                {item.recipe.difficulty.charAt(0).toUpperCase() + item.recipe.difficulty.slice(1)}
+              </Text>
+            </View>
+            
+            <View style={styles.detailItem}>
+              <Text style={styles.detailLabel}>Servings</Text>
+              <Text style={styles.detailValue}>{item.recipe.servings}</Text>
+            </View>
+          </View>
+
+          <View style={styles.ingredientsSection}>
+            <Text style={styles.sectionTitle}>Ingredients</Text>
+            <View style={styles.ingredientsList}>
+              {item.availableIngredients.map((ingredient, index) => (
+                <View key={`available-${index}`} style={styles.ingredientItem}>
+                  <Text style={[styles.ingredientText, styles.availableIngredient]}>
+                    ✓ {ingredient.name} ({ingredient.amount} {ingredient.unit})
+                  </Text>
+                </View>
+              ))}
+              {item.missingIngredients.map((ingredient, index) => (
+                <View key={`missing-${index}`} style={styles.ingredientItem}>
+                  <Text style={[styles.ingredientText, styles.missingIngredient]}>
+                    ✗ {ingredient.name} ({ingredient.amount} {ingredient.unit})
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </View>
+
+          <View style={styles.tagsContainer}>
+            {item.recipe.tags.slice(0, 3).map((tag, index) => (
+              <View key={index} style={styles.tag}>
+                <Text style={styles.tagText}>{tag}</Text>
+              </View>
+            ))}
+          </View>
         </View>
-      </View>
-    </TouchableOpacity>
+      </ProgressiveDisclosure>
+    </View>
   );
 
   const renderFilterSection = () => (
@@ -187,7 +244,7 @@ export const RecipeSuggestionsScreen: React.FC<RecipeSuggestionsScreenProps> = (
       <View style={styles.filterRow}>
         <TouchableOpacity
           style={[styles.filterButton, filters.difficulty === 'easy' && styles.filterButtonActive]}
-          onPress={() => setFilters(prev => ({ ...prev, difficulty: prev.difficulty === 'easy' ? undefined : 'easy' }))}
+          onPress={() => handleFilterChange({ ...filters, difficulty: filters.difficulty === 'easy' ? undefined : 'easy' })}
         >
           <Text style={[styles.filterButtonText, filters.difficulty === 'easy' && styles.filterButtonTextActive]}>
             Easy
@@ -196,7 +253,7 @@ export const RecipeSuggestionsScreen: React.FC<RecipeSuggestionsScreenProps> = (
         
         <TouchableOpacity
           style={[styles.filterButton, filters.difficulty === 'medium' && styles.filterButtonActive]}
-          onPress={() => setFilters(prev => ({ ...prev, difficulty: prev.difficulty === 'medium' ? undefined : 'medium' }))}
+          onPress={() => handleFilterChange({ ...filters, difficulty: filters.difficulty === 'medium' ? undefined : 'medium' })}
         >
           <Text style={[styles.filterButtonText, filters.difficulty === 'medium' && styles.filterButtonTextActive]}>
             Medium
@@ -205,7 +262,7 @@ export const RecipeSuggestionsScreen: React.FC<RecipeSuggestionsScreenProps> = (
         
         <TouchableOpacity
           style={[styles.filterButton, filters.difficulty === 'hard' && styles.filterButtonActive]}
-          onPress={() => setFilters(prev => ({ ...prev, difficulty: prev.difficulty === 'hard' ? undefined : 'hard' }))}
+          onPress={() => handleFilterChange({ ...filters, difficulty: filters.difficulty === 'hard' ? undefined : 'hard' })}
         >
           <Text style={[styles.filterButtonText, filters.difficulty === 'hard' && styles.filterButtonTextActive]}>
             Hard
@@ -216,7 +273,7 @@ export const RecipeSuggestionsScreen: React.FC<RecipeSuggestionsScreenProps> = (
       <View style={styles.filterRow}>
         <TouchableOpacity
           style={[styles.filterButton, filters.maxPrepTime === 30 && styles.filterButtonActive]}
-          onPress={() => setFilters(prev => ({ ...prev, maxPrepTime: prev.maxPrepTime === 30 ? undefined : 30 }))}
+          onPress={() => handleFilterChange({ ...filters, maxPrepTime: filters.maxPrepTime === 30 ? undefined : 30 })}
         >
           <Text style={[styles.filterButtonText, filters.maxPrepTime === 30 && styles.filterButtonTextActive]}>
             Quick (&lt; 30m)
@@ -225,13 +282,36 @@ export const RecipeSuggestionsScreen: React.FC<RecipeSuggestionsScreenProps> = (
         
         <TouchableOpacity
           style={[styles.filterButton, filters.maxMissingIngredients === 1 && styles.filterButtonActive]}
-          onPress={() => setFilters(prev => ({ ...prev, maxMissingIngredients: prev.maxMissingIngredients === 1 ? undefined : 1 }))}
+          onPress={() => handleFilterChange({ ...filters, maxMissingIngredients: filters.maxMissingIngredients === 1 ? undefined : 1 })}
         >
           <Text style={[styles.filterButtonText, filters.maxMissingIngredients === 1 && styles.filterButtonTextActive]}>
             Few Missing
           </Text>
         </TouchableOpacity>
       </View>
+
+      <View style={styles.filterRow}>
+        <Tooltip
+          content="Prioritize recipes that use ingredients expiring soon. This helps reduce food waste by suggesting recipes that use your most urgent items first."
+          position="bottom"
+        >
+          <TouchableOpacity
+            style={[styles.filterButton, filters.prioritizeExpiring && styles.filterButtonActive]}
+            onPress={() => handleFilterChange({ ...filters, prioritizeExpiring: !filters.prioritizeExpiring })}
+          >
+            <Text style={[styles.filterButtonText, filters.prioritizeExpiring && styles.filterButtonTextActive]}>
+              {filters.prioritizeExpiring ? '✓' : '○'} Use Expiring Items
+            </Text>
+          </TouchableOpacity>
+        </Tooltip>
+      </View>
+
+      {/* Loading indicator for filter changes */}
+      <LoadingIndicator
+        visible={filterLoading}
+        message="Updating recipes..."
+        size="small"
+      />
     </View>
   );
 
@@ -251,12 +331,18 @@ export const RecipeSuggestionsScreen: React.FC<RecipeSuggestionsScreenProps> = (
           <Text style={styles.backButtonText}>← Back</Text>
         </TouchableOpacity>
         <Text style={styles.title}>Recipe Suggestions</Text>
-        <TouchableOpacity
-          style={styles.filterToggle}
-          onPress={() => setShowFilters(!showFilters)}
+        <Tooltip
+          content="Use filters to find recipes that match your preferences. You can filter by difficulty, cooking time, and even prioritize recipes that use expiring ingredients!"
+          position="bottom"
+          showArrow={true}
         >
-          <Text style={styles.filterToggleText}>Filters</Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.filterToggle}
+            onPress={() => setShowFilters(!showFilters)}
+          >
+            <Text style={styles.filterToggleText}>Filters</Text>
+          </TouchableOpacity>
+        </Tooltip>
       </View>
 
       <View style={styles.searchSection}>
@@ -282,15 +368,24 @@ export const RecipeSuggestionsScreen: React.FC<RecipeSuggestionsScreenProps> = (
       </View>
 
       {suggestions.length === 0 ? (
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyTitle}>No recipes found</Text>
-          <Text style={styles.emptySubtitle}>
-            Try adjusting your filters or adding more items to your inventory
-          </Text>
-          <TouchableOpacity style={styles.refreshButton} onPress={loadRecipeSuggestions}>
-            <Text style={styles.refreshButtonText}>Refresh Suggestions</Text>
-          </TouchableOpacity>
-        </View>
+        <EnhancedEmptyState
+          title="No recipes found"
+          subtitle={
+            filters.prioritizeExpiring 
+              ? "No recipes found that use your expiring ingredients. Try adjusting your filters or adding more items to your inventory."
+              : "No recipes match your current filters. Try adjusting your search criteria or adding more items to your inventory."
+          }
+          icon="🍽️"
+          showAddItemsSuggestion={inventoryItems.length < 5}
+          showFilterGuidance={Object.keys(filters).length > 0}
+          onAddItems={() => {
+            // Navigate to camera screen or inventory
+            Alert.alert('Add Items', 'Navigate to camera to scan new items');
+          }}
+          onAdjustFilters={() => setShowFilters(true)}
+          actionText="Refresh Suggestions"
+          onAction={loadRecipeSuggestions}
+        />
       ) : (
         <FlatList
           data={suggestions}
@@ -460,6 +555,27 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: '#7f8c8d',
     textAlign: 'center',
+  },
+  expirationPriorityContainer: {
+    marginTop: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  expirationPriorityBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginRight: 8,
+  },
+  expirationPriorityText: {
+    color: 'white',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  expiringCountText: {
+    fontSize: 11,
+    color: '#e74c3c',
+    fontWeight: '500',
   },
   recipeDetails: {
     marginTop: 12,

@@ -39,6 +39,10 @@ export interface RecipeSuggestion {
   availableIngredients: RecipeIngredient[];
   canMakeWithSubstitutions: boolean;
   estimatedPrepTime: number;
+  // New fields for expiration prioritization
+  expirationPriority: number; // 0-1 score based on expiring ingredients
+  expiringIngredientsCount: number; // Count of ingredients expiring soon
+  expiringIngredients: RecipeIngredient[]; // List of expiring ingredients used
 }
 
 export interface RecipeSearchFilters {
@@ -47,9 +51,23 @@ export interface RecipeSearchFilters {
   cuisine?: string;
   tags?: string[];
   maxMissingIngredients?: number;
+  // New field for expiration prioritization
+  prioritizeExpiring?: boolean; // Whether to prioritize expiring items
+  expirationWeightMultiplier?: number; // Configurable weight multiplier (default: 0.3)
+  expirationThreshold?: number; // Days threshold for considering items "expiring" (default: 7)
 }
 
 export class RecipeService {
+  // Configuration constants for expiration prioritization
+  private static readonly DEFAULT_EXPIRATION_WEIGHT_MULTIPLIER = 0.3;
+  private static readonly DEFAULT_EXPIRATION_THRESHOLD = 7;
+  private static readonly EXPIRATION_WEIGHT_LEVELS = {
+    CRITICAL: { days: 1, weight: 2.0 },
+    HIGH: { days: 3, weight: 1.5 },
+    MEDIUM: { days: 7, weight: 1.2 },
+    NORMAL: { days: Infinity, weight: 1.0 }
+  };
+
   private static readonly RECIPE_DATABASE: Recipe[] = [
     // Quick & Easy Recipes
     {
@@ -283,8 +301,16 @@ export class RecipeService {
       }
     }
 
-    // Sort by match score (highest first)
-    return suggestions.sort((a, b) => b.matchScore - a.matchScore);
+    // Enhanced sorting: prioritize expiration if enabled, otherwise by match score
+    return suggestions.sort((a, b) => {
+      if (filters?.prioritizeExpiring) {
+        // Sort by expiration priority first, then by match score
+        if (a.expirationPriority !== b.expirationPriority) {
+          return b.expirationPriority - a.expirationPriority;
+        }
+      }
+      return b.matchScore - a.matchScore;
+    });
   }
 
   private static analyzeRecipeMatch(
@@ -314,25 +340,36 @@ export class RecipeService {
       }
     }
 
-    // Calculate final match score
-    const finalMatchScore = totalIngredients > 0 ? matchedIngredients / totalIngredients : 0;
+    // Calculate base match score
+    let finalMatchScore = totalIngredients > 0 ? matchedIngredients / totalIngredients : 0;
+
+    // Calculate expiration priority
+    const threshold = filters?.expirationThreshold || this.DEFAULT_EXPIRATION_THRESHOLD;
+    const expirationData = this.calculateExpirationPriority(recipe, inventoryItems, threshold);
+
+    // Apply expiration weighting if enabled
+    if (filters?.prioritizeExpiring && expirationData.priority > 0) {
+      // Boost match score based on expiration priority
+      const weightMultiplier = filters?.expirationWeightMultiplier || this.DEFAULT_EXPIRATION_WEIGHT_MULTIPLIER;
+      finalMatchScore = Math.min(1.0, finalMatchScore + (expirationData.priority * weightMultiplier));
+    }
 
     // Apply filters
     if (filters) {
       if (filters.maxPrepTime && recipe.prepTime > filters.maxPrepTime) {
-        matchScore = 0;
+        finalMatchScore = 0;
       }
       if (filters.difficulty && recipe.difficulty !== filters.difficulty) {
-        matchScore = 0;
+        finalMatchScore = 0;
       }
       if (filters.cuisine && recipe.cuisine !== filters.cuisine) {
-        matchScore = 0;
+        finalMatchScore = 0;
       }
       if (filters.tags && !filters.tags.some(tag => recipe.tags.includes(tag))) {
-        matchScore = 0;
+        finalMatchScore = 0;
       }
       if (filters.maxMissingIngredients && missingIngredients.length > filters.maxMissingIngredients) {
-        matchScore = 0;
+        finalMatchScore = 0;
       }
     }
 
@@ -342,7 +379,11 @@ export class RecipeService {
       missingIngredients,
       availableIngredients,
       canMakeWithSubstitutions: this.canMakeWithSubstitutions(recipe, inventoryItems),
-      estimatedPrepTime: recipe.prepTime + recipe.cookTime
+      estimatedPrepTime: recipe.prepTime + recipe.cookTime,
+      // New expiration fields
+      expirationPriority: expirationData.priority,
+      expiringIngredientsCount: expirationData.count,
+      expiringIngredients: expirationData.ingredients
     };
   }
 
@@ -403,6 +444,9 @@ export class RecipeService {
     if (filters.maxMissingIngredients && suggestion.missingIngredients.length > filters.maxMissingIngredients) {
       return false;
     }
+    if (filters.prioritizeExpiring && suggestion.expiringIngredientsCount === 0) {
+      return false; // Filter out recipes with no expiring ingredients when prioritization is enabled
+    }
 
     return true;
   }
@@ -429,9 +473,12 @@ export class RecipeService {
     return this.RECIPE_DATABASE[randomIndex];
   }
 
-  static async getRecipesForExpiringItems(inventoryItems: InventoryItem[]): Promise<RecipeSuggestion[]> {
+  static async getRecipesForExpiringItems(
+    inventoryItems: InventoryItem[],
+    threshold: number = this.DEFAULT_EXPIRATION_THRESHOLD
+  ): Promise<RecipeSuggestion[]> {
     const expiringItems = inventoryItems.filter(item => 
-      item.daysUntilExpiry <= 3 && !item.isExpired
+      item.daysUntilExpiry <= threshold && !item.isExpired
     );
 
     if (expiringItems.length === 0) {
@@ -439,7 +486,82 @@ export class RecipeService {
     }
 
     return this.getRecipeSuggestions(expiringItems, {
-      maxMissingIngredients: 2 // Prioritize recipes that use expiring items
+      maxMissingIngredients: 2, // Prioritize recipes that use expiring items
+      prioritizeExpiring: true, // Enable expiration prioritization
+      expirationThreshold: threshold // Use the provided threshold
     });
+  }
+
+  /**
+   * Get configuration options for expiration prioritization
+   */
+  static getExpirationConfig() {
+    return {
+      defaultWeightMultiplier: this.DEFAULT_EXPIRATION_WEIGHT_MULTIPLIER,
+      defaultThreshold: this.DEFAULT_EXPIRATION_THRESHOLD,
+      weightLevels: this.EXPIRATION_WEIGHT_LEVELS
+    };
+  }
+
+  /**
+   * Calculate expiration weight for an inventory item
+   * Higher weights are given to items expiring soon
+   */
+  private static calculateExpirationWeight(
+    inventoryItem: InventoryItem, 
+    threshold: number = this.DEFAULT_EXPIRATION_THRESHOLD
+  ): number {
+    if (inventoryItem.isExpired) return 0;
+    
+    // Only consider items within the threshold as "expiring"
+    if (inventoryItem.daysUntilExpiry > threshold) return 1.0;
+    
+    // Apply weight levels based on urgency
+    if (inventoryItem.daysUntilExpiry <= this.EXPIRATION_WEIGHT_LEVELS.CRITICAL.days) {
+      return this.EXPIRATION_WEIGHT_LEVELS.CRITICAL.weight;
+    }
+    if (inventoryItem.daysUntilExpiry <= this.EXPIRATION_WEIGHT_LEVELS.HIGH.days) {
+      return this.EXPIRATION_WEIGHT_LEVELS.HIGH.weight;
+    }
+    if (inventoryItem.daysUntilExpiry <= this.EXPIRATION_WEIGHT_LEVELS.MEDIUM.days) {
+      return this.EXPIRATION_WEIGHT_LEVELS.MEDIUM.weight;
+    }
+    
+    return this.EXPIRATION_WEIGHT_LEVELS.NORMAL.weight;
+  }
+
+  /**
+   * Calculate expiration priority score for a recipe suggestion
+   * Returns a value between 0-1 based on how many expiring ingredients are used
+   */
+  private static calculateExpirationPriority(
+    recipe: Recipe,
+    inventoryItems: InventoryItem[],
+    threshold: number = this.DEFAULT_EXPIRATION_THRESHOLD
+  ): { priority: number; count: number; ingredients: RecipeIngredient[] } {
+    const expiringIngredients: RecipeIngredient[] = [];
+    let totalExpirationWeight = 0;
+    let maxPossibleWeight = 0;
+
+    for (const recipeIngredient of recipe.ingredients) {
+      const inventoryMatch = this.findInventoryMatch(recipeIngredient, inventoryItems);
+      
+      if (inventoryMatch) {
+        const expirationWeight = this.calculateExpirationWeight(inventoryMatch, threshold);
+        if (expirationWeight > 1.0) { // Only count items that are expiring soon
+          expiringIngredients.push(recipeIngredient);
+          totalExpirationWeight += expirationWeight;
+        }
+        maxPossibleWeight += this.EXPIRATION_WEIGHT_LEVELS.CRITICAL.weight; // Maximum possible weight per ingredient
+      }
+    }
+
+    const priority = maxPossibleWeight > 0 ? totalExpirationWeight / maxPossibleWeight : 0;
+    
+    return {
+      priority: Math.min(priority, 1.0), // Cap at 1.0
+      count: expiringIngredients.length,
+      ingredients: expiringIngredients
+    };
   }
 } 
