@@ -12,6 +12,7 @@ import {
 import { RecipeService, Recipe } from '../services/RecipeService';
 import { InventoryService, InventoryItem } from '../services/InventoryService';
 import { GroceryListService } from '../services/GroceryListService';
+import { FamilyService, FamilyProfile } from '../services/FamilyService';
 
 interface RecipeDetailScreenProps {
   recipeId: string;
@@ -28,6 +29,13 @@ export const RecipeDetailScreen: React.FC<RecipeDetailScreenProps> = ({
   const [loading, setLoading] = useState(true);
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [showNutrition, setShowNutrition] = useState(false);
+  const [familyProfile, setFamilyProfile] = useState<FamilyProfile | null>(null);
+  const [scaledRecipe, setScaledRecipe] = useState<Recipe | null>(null);
+  const [dietaryCompliance, setDietaryCompliance] = useState<{
+    compliance: number;
+    warnings: string[];
+    isCompliant: boolean;
+  } | null>(null);
 
   useEffect(() => {
     loadRecipeDetails();
@@ -36,13 +44,26 @@ export const RecipeDetailScreen: React.FC<RecipeDetailScreenProps> = ({
   const loadRecipeDetails = async () => {
     try {
       setLoading(true);
-      const [recipeData, items] = await Promise.all([
+      const [recipeData, items, profile] = await Promise.all([
         RecipeService.getRecipeById(recipeId),
         InventoryService.getAllItems(),
+        FamilyService.getFamilyProfile(),
       ]);
       
       setRecipe(recipeData);
       setInventoryItems(items);
+      setFamilyProfile(profile);
+      
+      // Calculate family size and scale recipe
+      if (recipeData && profile) {
+        const familySize = profile.adults + profile.children;
+        const scaled = RecipeService.scaleRecipeForFamily(recipeData, familySize);
+        setScaledRecipe(scaled);
+        
+        // Check dietary compliance
+        const dietaryCheck = RecipeService.checkDietaryCompliance(scaled, profile.dietaryRestrictions.map(r => r.type));
+        setDietaryCompliance(dietaryCheck);
+      }
     } catch (error) {
       console.error('Failed to load recipe details:', error);
       Alert.alert('Error', 'Failed to load recipe details. Please try again.');
@@ -74,10 +95,10 @@ export const RecipeDetailScreen: React.FC<RecipeDetailScreenProps> = ({
   };
 
   const getMissingIngredients = () => {
-    if (!recipe) return [];
+    if (!recipe || !familyProfile) return [];
     
-    return recipe.ingredients
-      .filter(ing => !ing.isOptional && !checkIngredientAvailability(ing.name))
+    const familySize = familyProfile.adults + familyProfile.children;
+    return RecipeService.getMissingIngredientsForFamily(recipe, inventoryItems, familySize)
       .map(ing => ({
         name: ing.name,
         amount: ing.amount,
@@ -217,6 +238,73 @@ export const RecipeDetailScreen: React.FC<RecipeDetailScreenProps> = ({
             ))}
           </View>
         </View>
+
+        {/* Family-Aware Information */}
+        {familyProfile && scaledRecipe && (
+          <View style={styles.familySection}>
+            <Text style={styles.familySectionTitle}>Family Information</Text>
+            
+            <View style={styles.familyInfo}>
+              <View style={styles.familyInfoItem}>
+                <Text style={styles.familyInfoLabel}>Family Size</Text>
+                <Text style={styles.familyInfoValue}>
+                  {familyProfile.adults + familyProfile.children} people
+                </Text>
+              </View>
+              
+              <View style={styles.familyInfoItem}>
+                <Text style={styles.familyInfoLabel}>Scaled Servings</Text>
+                <Text style={styles.familyInfoValue}>
+                  {scaledRecipe.servings} servings
+                </Text>
+              </View>
+              
+              <View style={styles.familyInfoItem}>
+                <Text style={styles.familyInfoLabel}>Total Time</Text>
+                <Text style={styles.familyInfoValue}>
+                  {formatTime(scaledRecipe.prepTime + scaledRecipe.cookTime)}
+                </Text>
+              </View>
+            </View>
+
+            {/* Dietary Compliance */}
+            {dietaryCompliance && (
+              <View style={styles.dietarySection}>
+                <View style={styles.dietaryHeader}>
+                  <Text style={styles.dietaryTitle}>Dietary Compliance</Text>
+                  <View style={[
+                    styles.complianceIndicator,
+                    { backgroundColor: dietaryCompliance.isCompliant ? '#4CAF50' : '#FF5722' }
+                  ]}>
+                    <Text style={styles.complianceText}>
+                      {Math.round(dietaryCompliance.compliance * 100)}%
+                    </Text>
+                  </View>
+                </View>
+                
+                {dietaryCompliance.warnings.length > 0 && (
+                  <View style={styles.warningsContainer}>
+                    <Text style={styles.warningsTitle}>⚠️ Warnings:</Text>
+                    {dietaryCompliance.warnings.map((warning, index) => (
+                      <Text key={index} style={styles.warningText}>• {warning}</Text>
+                    ))}
+                  </View>
+                )}
+                
+                {familyProfile.dietaryRestrictions.length > 0 && (
+                  <View style={styles.restrictionsContainer}>
+                    <Text style={styles.restrictionsTitle}>Your Dietary Restrictions:</Text>
+                    {familyProfile.dietaryRestrictions.map((restriction, index) => (
+                      <Text key={index} style={styles.restrictionText}>
+                        • {restriction.type} ({restriction.severity})
+                      </Text>
+                    ))}
+                  </View>
+                )}
+              </View>
+            )}
+          </View>
+        )}
 
         {/* Ingredients Section */}
         <View style={styles.section}>
@@ -617,5 +705,97 @@ const styles = StyleSheet.create({
     color: '#7f8c8d',
     textAlign: 'center',
     marginBottom: 24,
+  },
+  // Family-aware styles
+  familySection: {
+    backgroundColor: '#E3F2FD',
+    margin: 16,
+    padding: 16,
+    borderRadius: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#1976D2',
+  },
+  familySectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1976D2',
+    marginBottom: 12,
+  },
+  familyInfo: {
+    marginBottom: 16,
+  },
+  familyInfoItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  familyInfoLabel: {
+    fontSize: 14,
+    color: '#424242',
+    fontWeight: '500',
+  },
+  familyInfoValue: {
+    fontSize: 14,
+    color: '#1976D2',
+    fontWeight: 'bold',
+  },
+  dietarySection: {
+    borderTopWidth: 1,
+    borderTopColor: '#BBDEFB',
+    paddingTop: 12,
+  },
+  dietaryHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  dietaryTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#424242',
+  },
+  complianceIndicator: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    minWidth: 50,
+    alignItems: 'center',
+  },
+  complianceText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  warningsContainer: {
+    marginTop: 8,
+  },
+  warningsTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#FF5722',
+    marginBottom: 4,
+  },
+  warningText: {
+    fontSize: 12,
+    color: '#D32F2F',
+    marginLeft: 8,
+    marginBottom: 2,
+  },
+  restrictionsContainer: {
+    marginTop: 8,
+  },
+  restrictionsTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#424242',
+    marginBottom: 4,
+  },
+  restrictionText: {
+    fontSize: 12,
+    color: '#616161',
+    marginLeft: 8,
+    marginBottom: 2,
   },
 }); 

@@ -43,6 +43,11 @@ export interface RecipeSuggestion {
   expirationPriority: number; // 0-1 score based on expiring ingredients
   expiringIngredientsCount: number; // Count of ingredients expiring soon
   expiringIngredients: RecipeIngredient[]; // List of expiring ingredients used
+  // New fields for family and dietary management
+  scaledServings?: number; // Adjusted servings for family size
+  dietaryCompliance?: number; // 0-1 score for dietary compliance
+  dietaryWarnings?: string[]; // Warnings about dietary restrictions
+  familySuitable?: boolean; // Whether recipe is suitable for family size
 }
 
 export interface RecipeSearchFilters {
@@ -55,6 +60,10 @@ export interface RecipeSearchFilters {
   prioritizeExpiring?: boolean; // Whether to prioritize expiring items
   expirationWeightMultiplier?: number; // Configurable weight multiplier (default: 0.3)
   expirationThreshold?: number; // Days threshold for considering items "expiring" (default: 7)
+  // New fields for family and dietary management
+  familySize?: number; // Number of people to cook for
+  dietaryRestrictions?: string[]; // Array of dietary restrictions to filter by
+  excludeAllergens?: string[]; // Array of allergens to exclude
 }
 
 export class RecipeService {
@@ -501,6 +510,226 @@ export class RecipeService {
       defaultThreshold: this.DEFAULT_EXPIRATION_THRESHOLD,
       weightLevels: this.EXPIRATION_WEIGHT_LEVELS
     };
+  }
+
+  /**
+   * Scale recipe ingredients for a specific family size
+   */
+  static scaleRecipeForFamily(recipe: Recipe, familySize: number): Recipe {
+    const scalingFactor = familySize / recipe.servings;
+    
+    const scaledRecipe: Recipe = {
+      ...recipe,
+      servings: familySize,
+      ingredients: recipe.ingredients.map(ingredient => ({
+        ...ingredient,
+        amount: Math.round(ingredient.amount * scalingFactor * 100) / 100, // Round to 2 decimal places
+      })),
+      prepTime: Math.round(recipe.prepTime * scalingFactor),
+      cookTime: Math.round(recipe.cookTime * scalingFactor),
+    };
+
+    // Scale nutrition info if available
+    if (recipe.nutritionInfo) {
+      scaledRecipe.nutritionInfo = {
+        calories: Math.round(recipe.nutritionInfo.calories * scalingFactor),
+        protein: Math.round(recipe.nutritionInfo.protein * scalingFactor * 10) / 10,
+        carbs: Math.round(recipe.nutritionInfo.carbs * scalingFactor * 10) / 10,
+        fat: Math.round(recipe.nutritionInfo.fat * scalingFactor * 10) / 10,
+        fiber: Math.round(recipe.nutritionInfo.fiber * scalingFactor * 10) / 10,
+      };
+    }
+
+    return scaledRecipe;
+  }
+
+  /**
+   * Check if recipe complies with dietary restrictions
+   */
+  static checkDietaryCompliance(recipe: Recipe, dietaryRestrictions: string[]): {
+    compliance: number;
+    warnings: string[];
+    isCompliant: boolean;
+  } {
+    const warnings: string[] = [];
+    let complianceScore = 1.0;
+
+    // Define dietary restriction rules
+    const dietaryRules: Record<string, {
+      forbiddenIngredients: string[];
+      forbiddenCategories: string[];
+      requiredTags?: string[];
+      warningMessage?: string;
+    }> = {
+      'vegan': {
+        forbiddenIngredients: ['meat', 'chicken', 'beef', 'pork', 'fish', 'eggs', 'milk', 'cheese', 'yogurt', 'butter', 'honey'],
+        forbiddenCategories: ['meat', 'dairy'],
+        requiredTags: ['vegan'],
+        warningMessage: 'Contains animal products',
+      },
+      'vegetarian': {
+        forbiddenIngredients: ['meat', 'chicken', 'beef', 'pork', 'fish'],
+        forbiddenCategories: ['meat'],
+        requiredTags: ['vegetarian'],
+        warningMessage: 'Contains meat products',
+      },
+      'gluten-free': {
+        forbiddenIngredients: ['wheat', 'flour', 'bread', 'pasta', 'couscous', 'barley', 'rye', 'oats'],
+        forbiddenCategories: [],
+        warningMessage: 'Contains gluten',
+      },
+      'dairy-free': {
+        forbiddenIngredients: ['milk', 'cheese', 'yogurt', 'butter', 'cream', 'sour cream'],
+        forbiddenCategories: ['dairy'],
+        warningMessage: 'Contains dairy products',
+      },
+      'nut-free': {
+        forbiddenIngredients: ['peanuts', 'almonds', 'walnuts', 'cashews', 'pecans', 'hazelnuts', 'pistachios'],
+        forbiddenCategories: [],
+        warningMessage: 'Contains nuts',
+      },
+      'soy-free': {
+        forbiddenIngredients: ['soy', 'soybean', 'tofu', 'soy sauce', 'miso', 'edamame'],
+        forbiddenCategories: [],
+        warningMessage: 'Contains soy products',
+      },
+      'shellfish-free': {
+        forbiddenIngredients: ['shrimp', 'crab', 'lobster', 'mussels', 'clams', 'oysters', 'scallops'],
+        forbiddenCategories: [],
+        warningMessage: 'Contains shellfish',
+      },
+      'egg-free': {
+        forbiddenIngredients: ['eggs', 'egg whites', 'egg yolks'],
+        forbiddenCategories: [],
+        warningMessage: 'Contains eggs',
+      },
+    };
+
+    for (const restriction of dietaryRestrictions) {
+      const rule = dietaryRules[restriction.toLowerCase()];
+      if (!rule) continue;
+
+      let hasViolation = false;
+
+      // Check ingredients
+      for (const ingredient of recipe.ingredients) {
+        const ingredientName = ingredient.name.toLowerCase();
+        
+        // Check forbidden ingredients
+        for (const forbidden of rule.forbiddenIngredients) {
+          if (ingredientName.includes(forbidden.toLowerCase())) {
+            warnings.push(`${rule.warningMessage}: ${ingredient.name}`);
+            hasViolation = true;
+            complianceScore -= 0.2; // Reduce compliance score
+          }
+        }
+
+        // Check forbidden categories
+        if (rule.forbiddenCategories.includes(ingredient.category)) {
+          warnings.push(`${rule.warningMessage}: ${ingredient.name} (${ingredient.category})`);
+          hasViolation = true;
+          complianceScore -= 0.15; // Reduce compliance score
+        }
+      }
+
+      // Check required tags
+      if (rule.requiredTags && !rule.requiredTags.some(tag => recipe.tags.includes(tag))) {
+        warnings.push(`Recipe not tagged as ${restriction}`);
+        complianceScore -= 0.1;
+      }
+    }
+
+    return {
+      compliance: Math.max(0, complianceScore),
+      warnings: [...new Set(warnings)], // Remove duplicates
+      isCompliant: complianceScore >= 0.8, // Consider compliant if score >= 0.8
+    };
+  }
+
+  /**
+   * Get recipe suggestions with family and dietary considerations
+   */
+  static async getFamilyAwareSuggestions(
+    inventoryItems: InventoryItem[],
+    familySize: number = 2,
+    dietaryRestrictions: string[] = [],
+    filters: RecipeSearchFilters = {}
+  ): Promise<RecipeSuggestion[]> {
+    const suggestions = await this.getSuggestions(inventoryItems, filters);
+    
+    return suggestions.map(suggestion => {
+      // Scale recipe for family size
+      const scaledRecipe = this.scaleRecipeForFamily(suggestion.recipe, familySize);
+      
+      // Check dietary compliance
+      const dietaryCheck = this.checkDietaryCompliance(scaledRecipe, dietaryRestrictions);
+      
+      // Determine if recipe is suitable for family
+      const familySuitable = familySize <= scaledRecipe.servings * 1.5; // Allow some flexibility
+      
+      return {
+        ...suggestion,
+        recipe: scaledRecipe,
+        scaledServings: familySize,
+        dietaryCompliance: dietaryCheck.compliance,
+        dietaryWarnings: dietaryCheck.warnings,
+        familySuitable,
+        // Adjust match score based on dietary compliance
+        matchScore: suggestion.matchScore * dietaryCheck.compliance,
+      };
+    }).filter(suggestion => 
+      // Filter out recipes that don't meet dietary requirements
+      suggestion.dietaryCompliance >= 0.5 &&
+      // Optionally filter by family suitability
+      (filters.familySize ? suggestion.familySuitable : true)
+    ).sort((a, b) => b.matchScore - a.matchScore);
+  }
+
+  /**
+   * Get missing ingredients for a recipe scaled to family size
+   */
+  static getMissingIngredientsForFamily(
+    recipe: Recipe,
+    inventoryItems: InventoryItem[],
+    familySize: number
+  ): RecipeIngredient[] {
+    const scaledRecipe = this.scaleRecipeForFamily(recipe, familySize);
+    
+    return scaledRecipe.ingredients.filter(ingredient => {
+      const availableItem = inventoryItems.find(item => 
+        item.name.toLowerCase() === ingredient.name.toLowerCase()
+      );
+      
+      if (!availableItem) return true; // Missing ingredient
+      
+      // Check if available quantity is sufficient
+      const requiredAmount = ingredient.amount;
+      const availableAmount = availableItem.quantity;
+      
+      // Convert units if necessary (simplified conversion)
+      const unitConversion = this.getUnitConversion(ingredient.unit, availableItem.unit);
+      const convertedRequired = requiredAmount * unitConversion;
+      
+      return convertedRequired > availableAmount;
+    });
+  }
+
+  /**
+   * Simple unit conversion helper
+   */
+  private static getUnitConversion(fromUnit: string, toUnit: string): number {
+    const conversions: Record<string, Record<string, number>> = {
+      'g': { 'kg': 0.001, 'oz': 0.035, 'lb': 0.002 },
+      'kg': { 'g': 1000, 'oz': 35.274, 'lb': 2.205 },
+      'ml': { 'l': 0.001, 'cup': 0.004, 'tbsp': 0.067 },
+      'l': { 'ml': 1000, 'cup': 4.227, 'tbsp': 67.628 },
+      'piece': { 'pieces': 1, 'unit': 1 },
+      'pieces': { 'piece': 1, 'unit': 1 },
+      'unit': { 'piece': 1, 'pieces': 1 },
+    };
+
+    if (fromUnit === toUnit) return 1;
+    return conversions[fromUnit]?.[toUnit] || 1;
   }
 
   /**
