@@ -24,6 +24,7 @@ import { ImageService } from './services/ImageService';
 import { InventoryService, InventoryItem } from './services/InventoryService';
 import { RecipeService } from './services/RecipeService';
 import { ScanningService } from './services/ScanningService';
+import SettingsScreen from './components/SettingsScreen';
 
 type AppState = 
   | 'loading' 
@@ -36,7 +37,8 @@ type AppState =
   | 'recipe-detail' 
   | 'inventory-overview' 
   | 'inventory-item-detail' 
-  | 'grocery-list';
+  | 'grocery-list'
+  | 'settings';
 
 export default function App() {
   const [appState, setAppState] = useState<AppState>('loading');
@@ -117,6 +119,9 @@ export default function App() {
         break;
       case 'grocery':
         setAppState('grocery-list');
+        break;
+      case 'settings':
+        setAppState('settings');
         break;
     }
   };
@@ -426,6 +431,22 @@ export default function App() {
         </View>
         <BottomNavigationBar
           activeTab="grocery"
+          onTabPress={handleTabPress}
+        />
+        <StatusBar barStyle="dark-content" />
+      </SafeAreaView>
+    );
+  }
+
+  // Settings state
+  if (appState === 'settings') {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.content}>
+          <SettingsScreen />
+        </View>
+        <BottomNavigationBar
+          activeTab="settings"
           onTabPress={handleTabPress}
         />
         <StatusBar barStyle="dark-content" />

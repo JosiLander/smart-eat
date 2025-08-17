@@ -7,7 +7,7 @@ import {
   Platform,
 } from 'react-native';
 
-export type TabType = 'scan' | 'recipes' | 'inventory' | 'grocery';
+export type TabType = 'scan' | 'recipes' | 'inventory' | 'grocery' | 'settings';
 
 interface BottomNavigationBarProps {
   activeTab: TabType;
@@ -38,6 +38,11 @@ export const BottomNavigationBar: React.FC<BottomNavigationBarProps> = ({
       id: 'grocery' as TabType,
       label: 'Grocery',
       icon: '🛒',
+    },
+    {
+      id: 'settings' as TabType,
+      label: 'Settings',
+      icon: '⚙️',
     },
   ];
 
