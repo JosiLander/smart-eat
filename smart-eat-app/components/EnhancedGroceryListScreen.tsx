@@ -382,6 +382,20 @@ export const EnhancedGroceryListScreen: React.FC<EnhancedGroceryListScreenProps>
     </TouchableOpacity>
   );
 
+  const renderEmptyState = () => (
+    <View style={styles.emptyStateContainer}>
+      <Text style={styles.emptyStateIcon}>🛒</Text>
+      <Text style={styles.emptyStateTitle}>Your list is empty</Text>
+      <Text style={styles.emptyStateMessage}>Add some items to get started with your shopping</Text>
+      <TouchableOpacity
+        style={styles.emptyStateButton}
+        onPress={() => setShowAddModal(true)}
+      >
+        <Text style={styles.emptyStateButtonText}>+ Add First Item</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
@@ -395,12 +409,85 @@ export const EnhancedGroceryListScreen: React.FC<EnhancedGroceryListScreenProps>
   if (!activeList) {
     return (
       <SafeAreaView style={styles.container}>
-        <EmptyState
-          title="No Shopping List"
-          message="Create a new shopping list to get started"
-          actionText="Create List"
-          onAction={() => setShowAddModal(true)}
-        />
+        <View style={styles.header}>
+          <TouchableOpacity onPress={onBack} style={styles.backButton}>
+            <Text style={styles.backButtonText}>← Back</Text>
+          </TouchableOpacity>
+          
+          <View style={styles.headerContent}>
+            <Text style={styles.title}>Shopping List</Text>
+            <Text style={styles.subtitle}>Create your first list</Text>
+          </View>
+          
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => setShowTemplateModal(true)}
+            >
+              <Text style={styles.actionButtonText}>📋</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Progress Bar */}
+        <View style={styles.progressContainer}>
+          <View style={styles.progressBar}>
+            <View
+              style={[
+                styles.progressFill,
+                { width: '0%' },
+              ]}
+            />
+          </View>
+          <Text style={styles.progressText}>
+            0% Complete
+          </Text>
+        </View>
+
+        {/* Shopping Mode Toggle */}
+        <View style={styles.shoppingModeContainer}>
+          <TouchableOpacity
+            style={styles.modeToggle}
+            onPress={() => setIsShoppingMode(!isShoppingMode)}
+          >
+            <Text style={styles.shoppingModeText}>📝 Planning Mode</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Template Suggestions */}
+        {templateSuggestions.length > 0 && (
+          <View style={styles.suggestionsContainer}>
+            <Text style={styles.suggestionsTitle}>Suggested Templates</Text>
+            <FlatList
+              data={templateSuggestions}
+              renderItem={renderTemplateSuggestion}
+              keyExtractor={(item) => item.template.id}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.suggestionsList}
+            />
+          </View>
+        )}
+
+        {/* Main Content */}
+        <View style={styles.mainContent}>
+          <EmptyState
+            title="No Shopping List"
+            subtitle="Create a new shopping list to get started"
+            actionText="Create List"
+            onAction={() => setShowAddModal(true)}
+          />
+        </View>
+
+        {/* Action Buttons */}
+        <View style={styles.actionContainer}>
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={() => setShowAddModal(true)}
+          >
+            <Text style={styles.addButtonText}>+ Create List</Text>
+          </TouchableOpacity>
+        </View>
       </SafeAreaView>
     );
   }
@@ -462,9 +549,16 @@ export const EnhancedGroceryListScreen: React.FC<EnhancedGroceryListScreenProps>
       </View>
 
       {/* Shopping Mode Toggle */}
-      {isShoppingMode && (
-        <View style={styles.shoppingModeContainer}>
-          <Text style={styles.shoppingModeText}>🛒 Shopping Mode</Text>
+      <View style={styles.shoppingModeContainer}>
+        <TouchableOpacity
+          style={styles.modeToggle}
+          onPress={() => setIsShoppingMode(!isShoppingMode)}
+        >
+          <Text style={styles.shoppingModeText}>
+            {isShoppingMode ? '🛒 Shopping Mode' : '📝 Planning Mode'}
+          </Text>
+        </TouchableOpacity>
+        {isShoppingMode && (
           <TouchableOpacity
             style={styles.completedToggle}
             onPress={() => setShowCompletedItems(!showCompletedItems)}
@@ -473,11 +567,11 @@ export const EnhancedGroceryListScreen: React.FC<EnhancedGroceryListScreenProps>
               {showCompletedItems ? 'Hide' : 'Show'} Completed
             </Text>
           </TouchableOpacity>
-        </View>
-      )}
+        )}
+      </View>
 
       {/* Template Suggestions */}
-      {templateSuggestions.length > 0 && !isShoppingMode && (
+      {templateSuggestions.length > 0 && (
         <View style={styles.suggestionsContainer}>
           <Text style={styles.suggestionsTitle}>Suggested Templates</Text>
           <FlatList
@@ -491,15 +585,21 @@ export const EnhancedGroceryListScreen: React.FC<EnhancedGroceryListScreenProps>
         </View>
       )}
 
-      {/* Items List */}
-      <FlatList
-        data={showCompletedItems ? sortedItems : sortedItems.filter(item => !(item.item as GroceryItem).isPurchased)}
-        renderItem={renderItem}
-        keyExtractor={(item) => (item.item as GroceryItem).id}
-        ListHeaderComponent={currentLayout ? renderSectionHeader : undefined}
-        style={styles.itemsList}
-        showsVerticalScrollIndicator={false}
-      />
+      {/* Main Content */}
+      <View style={styles.mainContent}>
+        {sortedItems.length === 0 ? (
+          renderEmptyState()
+        ) : (
+          <FlatList
+            data={showCompletedItems ? sortedItems : sortedItems.filter(item => !(item.item as GroceryItem).isPurchased)}
+            renderItem={renderItem}
+            keyExtractor={(item) => (item.item as GroceryItem).id}
+            ListHeaderComponent={currentLayout ? renderSectionHeader : undefined}
+            style={styles.itemsList}
+            showsVerticalScrollIndicator={false}
+          />
+        )}
+      </View>
 
       {/* Action Buttons */}
       <View style={styles.actionContainer}>
@@ -741,6 +841,9 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#1976D2',
   },
+  modeToggle: {
+    flex: 1,
+  },
   completedToggle: {
     padding: 4,
   },
@@ -783,6 +886,7 @@ const styles = StyleSheet.create({
   },
   itemsList: {
     flex: 1,
+    marginTop: 10,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -1008,5 +1112,41 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     marginTop: 4,
+  },
+  mainContent: {
+    flex: 1,
+    padding: 20,
+  },
+  emptyStateContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  emptyStateIcon: {
+    fontSize: 60,
+    marginBottom: 10,
+  },
+  emptyStateTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 5,
+  },
+  emptyStateMessage: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  emptyStateButton: {
+    backgroundColor: '#007AFF',
+    paddingVertical: 12,
+    paddingHorizontal: 25,
+    borderRadius: 8,
+  },
+  emptyStateButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
