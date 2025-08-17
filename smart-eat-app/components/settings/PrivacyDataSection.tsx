@@ -328,7 +328,7 @@ export const PrivacyDataSection: React.FC<PrivacyDataSectionProps> = ({
           onPress={clearAllData}
         >
           <Text style={styles.actionButtonText}>🗑️ Clear All Data</Text>
-        </Touchable>
+        </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.actionButton, styles.dangerButton]}
