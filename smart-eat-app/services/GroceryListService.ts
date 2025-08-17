@@ -9,6 +9,8 @@ export interface GroceryItem {
   notes?: string;
   source?: 'recipe' | 'manual' | 'suggestion';
   recipeId?: string;
+  sectionOrder?: number;
+  itemOrder?: number;
 }
 
 export interface GroceryList {
@@ -18,6 +20,13 @@ export interface GroceryList {
   createdAt: string;
   updatedAt: string;
   isActive: boolean;
+  templateId?: string;
+  storeLayoutId?: string;
+  shoppingProgress?: {
+    totalItems: number;
+    completedItems: number;
+    currentSection?: string;
+  };
 }
 
 export interface CreateListResult {
@@ -379,6 +388,131 @@ export class GroceryListService {
       addedAt: new Date().toISOString(),
       source: 'suggestion' as const,
     }));
+  }
+
+  static async markShoppingCompleted(listId: string): Promise<boolean> {
+    try {
+      const list = this.lists.find(l => l.id === listId);
+      if (!list) return false;
+
+      // Mark all items as purchased
+      list.items.forEach(item => {
+        item.isPurchased = true;
+      });
+
+      // Update shopping progress
+      if (list.shoppingProgress) {
+        list.shoppingProgress.completedItems = list.shoppingProgress.totalItems;
+      }
+
+      list.updatedAt = new Date().toISOString();
+      await this.saveToStorage();
+
+      return true;
+    } catch (error) {
+      console.error('Failed to mark shopping as completed:', error);
+      return false;
+    }
+  }
+
+  static async createListFromTemplate(templateId: string, name?: string): Promise<CreateListResult> {
+    try {
+      // This would integrate with TemplateService
+      // For now, return a basic implementation
+      const listName = name || `Shopping List ${new Date().toLocaleDateString()}`;
+      const result = await this.createList(listName);
+      
+      if (result.success && result.listId) {
+        const list = this.lists.find(l => l.id === result.listId);
+        if (list) {
+          list.templateId = templateId;
+          await this.saveToStorage();
+        }
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('Failed to create list from template:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+      };
+    }
+  }
+
+  static async sortListByStoreLayout(listId: string, layoutId: string): Promise<boolean> {
+    try {
+      const list = this.lists.find(l => l.id === listId);
+      if (!list) return false;
+
+      // This would integrate with StoreLayoutService
+      // For now, implement basic sorting by category
+      const categoryOrder = ['fruits', 'vegetables', 'dairy', 'meat', 'pantry', 'beverages', 'snacks', 'frozen', 'other'];
+      
+      list.items.sort((a, b) => {
+        const aIndex = categoryOrder.indexOf(a.category);
+        const bIndex = categoryOrder.indexOf(b.category);
+        return aIndex - bIndex;
+      });
+
+      list.storeLayoutId = layoutId;
+      list.updatedAt = new Date().toISOString();
+      await this.saveToStorage();
+
+      return true;
+    } catch (error) {
+      console.error('Failed to sort list by store layout:', error);
+      return false;
+    }
+  }
+
+  static async getShoppingProgress(listId: string): Promise<{ total: number; completed: number; progress: number } | null> {
+    try {
+      const list = this.lists.find(l => l.id === listId);
+      if (!list) return null;
+
+      const total = list.items.length;
+      const completed = list.items.filter(item => item.isPurchased).length;
+      const progress = total > 0 ? (completed / total) * 100 : 0;
+
+      return { total, completed, progress };
+    } catch (error) {
+      console.error('Failed to get shopping progress:', error);
+      return null;
+    }
+  }
+
+  static async reorderCompletedItems(listId: string): Promise<boolean> {
+    try {
+      const list = this.lists.find(l => l.id === listId);
+      if (!list) return false;
+
+      // Move completed items to the bottom while maintaining category order
+      const categoryOrder = ['fruits', 'vegetables', 'dairy', 'meat', 'pantry', 'beverages', 'snacks', 'frozen', 'other'];
+      
+      const uncompletedItems = list.items.filter(item => !item.isPurchased);
+      const completedItems = list.items.filter(item => item.isPurchased);
+
+      // Sort both arrays by category
+      const sortByCategory = (a: GroceryItem, b: GroceryItem) => {
+        const aIndex = categoryOrder.indexOf(a.category);
+        const bIndex = categoryOrder.indexOf(b.category);
+        return aIndex - bIndex;
+      };
+
+      uncompletedItems.sort(sortByCategory);
+      completedItems.sort(sortByCategory);
+
+      // Combine with completed items at the bottom
+      list.items = [...uncompletedItems, ...completedItems];
+      list.updatedAt = new Date().toISOString();
+      await this.saveToStorage();
+
+      return true;
+    } catch (error) {
+      console.error('Failed to reorder completed items:', error);
+      return false;
+    }
   }
 
   private static async saveToStorage(): Promise<void> {
