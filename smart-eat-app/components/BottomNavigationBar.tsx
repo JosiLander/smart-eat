@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
     // Active state styling
   },
   tabIcon: {
-    fontSize: 24,
+    fontSize: 20,
     marginBottom: 4,
     opacity: 0.6,
   },
@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
     opacity: 1,
   },
   tabLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '500',
     color: '#666',
     textAlign: 'center',

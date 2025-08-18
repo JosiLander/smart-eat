@@ -10,6 +10,8 @@ import {
   SafeAreaView,
   Image,
 } from 'react-native';
+import { ThemeProvider } from './theme/index';
+import ErrorBoundary from './components/ErrorBoundary';
 import { CameraScreen } from './components/CameraScreen';
 import { ScanResultsScreen } from './components/ScanResultsScreen';
 import { RecipeSuggestionsScreen } from './components/RecipeSuggestionsScreen';
@@ -40,7 +42,7 @@ type AppState =
   | 'grocery-list'
   | 'settings';
 
-export default function App() {
+function AppContent() {
   const [appState, setAppState] = useState<AppState>('loading');
   const [activeTab, setActiveTab] = useState<TabType>('scan');
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
@@ -48,6 +50,7 @@ export default function App() {
   const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null);
   const [selectedInventoryItem, setSelectedInventoryItem] = useState<InventoryItem | null>(null);
   const [debugInfo, setDebugInfo] = useState<string>('');
+  const [groceryListKey, setGroceryListKey] = useState<number>(0); // Force re-render when needed
 
   useEffect(() => {
     initializeApp();
@@ -426,6 +429,7 @@ export default function App() {
       <SafeAreaView style={styles.container}>
         <View style={styles.content}>
           <GroceryListScreen
+            key={groceryListKey}
             onBack={handleGroceryListBack}
           />
         </View>
@@ -586,17 +590,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    fontSize: 42,
-    fontWeight: '900',
+    fontSize: 32,
+    fontWeight: '700',
     color: '#27ae60',
     marginBottom: 12,
-    letterSpacing: -1.2,
-    textShadowColor: 'rgba(39, 174, 96, 0.1)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
+    letterSpacing: -0.5,
   },
   subtitle: {
-    fontSize: 20,
+    fontSize: 16,
     color: '#34495e',
     marginBottom: 0,
     fontWeight: '600',
@@ -618,9 +619,9 @@ const styles = StyleSheet.create({
   },
   scanButtonText: {
     color: 'white',
-    fontSize: 20,
-    fontWeight: '800',
-    letterSpacing: 0.5,
+    fontSize: 16,
+    fontWeight: '600',
+    letterSpacing: 0.3,
   },
   secondaryButton: {
     backgroundColor: 'white',
@@ -638,8 +639,8 @@ const styles = StyleSheet.create({
   },
   secondaryButtonText: {
     color: '#2c3e50',
-    fontSize: 17,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '600',
     letterSpacing: 0.3,
   },
   webInfo: {
@@ -667,7 +668,18 @@ const styles = StyleSheet.create({
   },
   demoButtonText: {
     color: 'white',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
   },
 });
+
+// Wrapper component with theme provider and error boundary
+export default function App() {
+  return (
+    <ErrorBoundary>
+      <ThemeProvider>
+        <AppContent />
+      </ThemeProvider>
+    </ErrorBoundary>
+  );
+}

@@ -69,7 +69,7 @@ export const RecipeSuggestionsScreen: React.FC<RecipeSuggestionsScreenProps> = (
       
       const recipeSuggestions = await RecipeService.getRecipeSuggestions(items, filters);
       setSuggestions(recipeSuggestions);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to load recipe suggestions:', error);
       Alert.alert('Error', 'Failed to load recipe suggestions. Please try again.');
     } finally {
@@ -391,11 +391,7 @@ export const RecipeSuggestionsScreen: React.FC<RecipeSuggestionsScreenProps> = (
         </TouchableOpacity>
         <Text style={styles.title}>Recipe Suggestions</Text>
         <View style={styles.headerActions}>
-          {onScanItems && (
-            <TouchableOpacity style={styles.scanButton} onPress={onScanItems}>
-              <Text style={styles.scanButtonText}>📷 Scan</Text>
-            </TouchableOpacity>
-          )}
+          {/* Removed scan button as it's not needed in recipe suggestions */}
           <Tooltip
             content="Use filters to find recipes that match your preferences. You can filter by difficulty, cooking time, and even prioritize recipes that use expiring ingredients!"
             position="bottom"
@@ -545,13 +541,10 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   title: {
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: 18,
+    fontWeight: '600',
     color: '#27ae60',
     letterSpacing: 0.3,
-    textShadowColor: 'rgba(39, 174, 96, 0.1)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
   },
   filterToggle: {
     paddingHorizontal: 12,

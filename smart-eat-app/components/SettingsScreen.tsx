@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
   View,
-  Text,
   ScrollView,
   TouchableOpacity,
   StyleSheet,
@@ -9,6 +8,12 @@ import {
   ActivityIndicator,
   TextInput,
 } from 'react-native';
+import { useTheme } from '../theme';
+import { Text, Heading2, BodyText } from './design-system/Text';
+import { Button, PrimaryButton, OutlineButton } from './design-system/Button';
+import { BackButton } from './design-system/BackButton';
+import { SuccessMessage } from './design-system/SuccessMessage';
+import { EnhancedTouchable } from './design-system/EnhancedTouchable';
 import SettingsService, {
   SettingsSection,
   SettingsItem,
@@ -26,10 +31,12 @@ interface SettingsScreenProps {
 }
 
 export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
+  const theme = useTheme();
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const settingsService = SettingsService.getInstance();
 
   useEffect(() => {
@@ -84,6 +91,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
           await settingsService.updatePrivacySettings({ [key]: value });
           break;
       }
+      
+      // Show success message
+      setShowSuccessMessage(true);
+      setTimeout(() => setShowSuccessMessage(false), 2000);
     } catch (error) {
       console.error('Failed to update setting:', error);
       Alert.alert('Error', 'Failed to update setting');
@@ -214,31 +225,21 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
     switch (item.type) {
       case 'toggle':
         return (
-          <View key={item.key} style={styles.settingItem}>
-            <View style={styles.settingLabelContainer}>
-              <Text style={styles.settingLabel}>{item.label}</Text>
-              {item.description && (
-                <Text style={styles.settingDescription}>{item.description}</Text>
-              )}
-            </View>
+          <>
+            <Text style={styles.settingLabel}>{item.label}</Text>
             <TouchableOpacity
               style={[styles.toggle, item.value && styles.toggleActive]}
               onPress={() => item.onChange(!item.value)}
             >
               <View style={[styles.toggleThumb, item.value && styles.toggleThumbActive]} />
             </TouchableOpacity>
-          </View>
+          </>
         );
 
       case 'select':
         return (
-          <View key={item.key} style={styles.settingItem}>
-            <View style={styles.settingLabelContainer}>
-              <Text style={styles.settingLabel}>{item.label}</Text>
-              {item.description && (
-                <Text style={styles.settingDescription}>{item.description}</Text>
-              )}
-            </View>
+          <>
+            <Text style={styles.settingLabel}>{item.label}</Text>
             <TouchableOpacity
               style={styles.selectButton}
               onPress={() => {
@@ -255,18 +256,13 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
               <Text style={styles.selectButtonText}>{item.value}</Text>
               <Text style={styles.selectButtonArrow}>▼</Text>
             </TouchableOpacity>
-          </View>
+          </>
         );
 
       case 'input':
         return (
-          <View key={item.key} style={styles.settingItem}>
-            <View style={styles.settingLabelContainer}>
-              <Text style={styles.settingLabel}>{item.label}</Text>
-              {item.description && (
-                <Text style={styles.settingDescription}>{item.description}</Text>
-              )}
-            </View>
+          <>
+            <Text style={styles.settingLabel}>{item.label}</Text>
             <TextInput
               style={styles.input}
               value={String(item.value)}
@@ -274,7 +270,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
               keyboardType="numeric"
               placeholder="Enter value"
             />
-          </View>
+          </>
         );
 
       case 'button':
@@ -350,10 +346,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
           );
         }
         return (
-          <View key={item.key} style={styles.settingItem}>
+          <>
             <Text style={styles.settingLabel}>{item.label}</Text>
-            <Text style={styles.settingDescription}>Custom component needed</Text>
-          </View>
+            <Text style={styles.settingValue}>Custom component needed</Text>
+          </>
         );
 
       default:
@@ -375,6 +371,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
         <TouchableOpacity
           style={styles.sectionHeader}
           onPress={() => setExpandedSection(isExpanded ? null : section.title)}
+          activeOpacity={0.7}
         >
           <View style={styles.sectionHeaderContent}>
             <Text style={styles.sectionIcon}>{section.icon}</Text>
@@ -388,7 +385,14 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
         
         {isExpanded && (
           <View style={styles.sectionContent}>
-            {filteredItems.map(renderSettingItem)}
+            {filteredItems.map((item, index) => (
+              <View key={item.key} style={[
+                styles.settingItem,
+                index === filteredItems.length - 1 && styles.settingItemLast
+              ]}>
+                {renderSettingItem(item)}
+              </View>
+            ))}
           </View>
         )}
       </View>
@@ -407,44 +411,52 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
   const sections = getSettingsSections();
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      {/* Success Message */}
+      <SuccessMessage
+        message="Settings saved successfully!"
+        visible={showSuccessMessage}
+        onHide={() => setShowSuccessMessage(false)}
+      />
+      
       {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Settings</Text>
-        <TouchableOpacity style={styles.searchButton}>
-          <Text style={styles.searchIcon}>🔍</Text>
-        </TouchableOpacity>
+      <View style={[styles.header, { backgroundColor: theme.colors.surface, borderBottomColor: theme.colors.border }]}>
+        <Heading2 color="textPrimary" align="center">Settings</Heading2>
       </View>
 
       {/* Search Bar */}
-      <View style={styles.searchContainer}>
+      <View style={[styles.searchContainer, { backgroundColor: theme.colors.surface, borderBottomColor: theme.colors.border }]}>
         <TextInput
-          style={styles.searchInput}
+          style={[styles.searchInput, { 
+            backgroundColor: theme.colors.backgroundSecondary,
+            color: theme.colors.textPrimary 
+          }]}
           placeholder="Search settings..."
+          placeholderTextColor={theme.colors.textTertiary}
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
       </View>
 
-      {/* Quick Actions */}
-      <View style={styles.quickActions}>
-        <TouchableOpacity
-          style={styles.quickActionButton}
-          onPress={() => settingsService.resetToDefaults()}
-        >
-          <Text style={styles.quickActionText}>Reset All</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.quickActionButton}
-          onPress={handleExportData}
-        >
-          <Text style={styles.quickActionText}>Export</Text>
-        </TouchableOpacity>
-      </View>
-
       {/* Settings Sections */}
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {sections.map(renderSettingsSection)}
+        
+        {/* Quick Actions at the bottom */}
+        <View style={styles.quickActionsSection}>
+          <OutlineButton
+            onPress={() => settingsService.resetToDefaults()}
+            style={styles.quickActionButton}
+          >
+            Reset All Settings
+          </OutlineButton>
+          <PrimaryButton
+            onPress={handleExportData}
+            style={styles.exportButton}
+          >
+            Export Data
+          </PrimaryButton>
+        </View>
       </ScrollView>
     </View>
   );
@@ -453,89 +465,55 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f8f9fa',
   },
   loadingText: {
     marginTop: 16,
-    fontSize: 16,
-    color: '#666',
+    fontSize: 14,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 16,
-    backgroundColor: 'white',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  searchButton: {
-    padding: 8,
-  },
-  searchIcon: {
-    fontSize: 20,
   },
   searchContainer: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: 'white',
+    borderBottomWidth: 1,
   },
   searchInput: {
-    backgroundColor: '#f0f0f0',
-    borderRadius: 8,
+    borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    fontSize: 16,
-  },
-  quickActions: {
-    flexDirection: 'row',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  quickActionButton: {
-    backgroundColor: '#27ae60',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 6,
-    marginRight: 12,
-  },
-  quickActionText: {
-    color: 'white',
     fontSize: 14,
-    fontWeight: '500',
   },
   scrollView: {
     flex: 1,
+    paddingTop: 16,
   },
   section: {
-    marginTop: 12,
     backgroundColor: 'white',
-    marginHorizontal: 20,
-    borderRadius: 12,
+    borderRadius: 16,
+    marginBottom: 16,
+    marginHorizontal: 16,
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 4,
   },
   sectionHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 16,
+    backgroundColor: 'white',
   },
   sectionHeaderContent: {
     flexDirection: 'row',
@@ -543,67 +521,71 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   sectionIcon: {
-    fontSize: 24,
-    marginRight: 12,
+    fontSize: 20,
+    marginRight: 16,
   },
   sectionTitleContainer: {
     flex: 1,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
-    color: '#333',
+    color: '#1a1a1a',
   },
   sectionSubtitle: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#666',
     marginTop: 2,
   },
   expandIcon: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#666',
+    fontWeight: '600',
   },
   sectionContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 16,
+    backgroundColor: '#fafafa',
   },
   settingItem: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
+    backgroundColor: 'white',
   },
-  settingLabelContainer: {
-    flex: 1,
-    marginRight: 16,
+  settingItemLast: {
+    borderBottomWidth: 0,
   },
   settingLabel: {
-    fontSize: 16,
-    color: '#333',
+    fontSize: 14,
+    color: '#1a1a1a',
     fontWeight: '500',
   },
-  settingDescription: {
+  settingValue: {
     fontSize: 14,
     color: '#666',
-    marginTop: 2,
+  },
+  settingIcon: {
+    fontSize: 16,
+    color: '#999',
   },
   toggle: {
-    width: 50,
-    height: 30,
+    width: 44,
+    height: 24,
     backgroundColor: '#e0e0e0',
-    borderRadius: 15,
+    borderRadius: 12,
     padding: 2,
   },
   toggleActive: {
     backgroundColor: '#27ae60',
   },
   toggleThumb: {
-    width: 26,
-    height: 26,
+    width: 20,
+    height: 20,
     backgroundColor: 'white',
-    borderRadius: 13,
+    borderRadius: 10,
   },
   toggleThumbActive: {
     transform: [{ translateX: 20 }],
@@ -611,29 +593,33 @@ const styles = StyleSheet.create({
   selectButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#f5f5f5',
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 6,
+    borderRadius: 8,
+    minWidth: 100,
   },
   selectButtonText: {
     fontSize: 14,
-    color: '#333',
+    color: '#1a1a1a',
     marginRight: 8,
+    fontWeight: '500',
   },
   selectButtonArrow: {
     fontSize: 12,
     color: '#666',
   },
   input: {
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#f5f5f5',
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 6,
+    borderRadius: 8,
     fontSize: 14,
-    color: '#333',
+    color: '#1a1a1a',
     minWidth: 80,
     textAlign: 'center',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
   },
   buttonItem: {
     backgroundColor: '#ff6b6b',
@@ -645,11 +631,31 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: 'white',
-    fontSize: 16,
-    fontWeight: '500',
+    fontSize: 14,
+    fontWeight: '600',
   },
   customComponentContainer: {
     paddingVertical: 16,
+    backgroundColor: 'white',
+  },
+  quickActionsSection: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    marginBottom: 20,
+    marginHorizontal: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 4,
+    padding: 16,
+  },
+  quickActionButton: {
+    marginBottom: 8,
+  },
+  exportButton: {
+    marginBottom: 8,
   },
 });
 

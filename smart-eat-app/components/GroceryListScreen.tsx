@@ -1206,12 +1206,12 @@ const styles = StyleSheet.create({
   },
   addButtonText: {
     color: 'white',
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '600',
     letterSpacing: 0.3,
   },
   suggestionsSubtitle: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
     color: '#2c3e50',
     marginBottom: 16,
@@ -1228,7 +1228,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   suggestionName: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
     color: '#2c3e50',
     marginBottom: 2,
